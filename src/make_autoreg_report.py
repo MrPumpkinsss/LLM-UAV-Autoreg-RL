@@ -53,15 +53,20 @@ def main() -> None:
             f"| {row['method']} | {row['reward_mean']:.6f} +/- {row['reward_std']:.6f} | "
             f"{row['feasible_mean']:.4f} | {row['latency_mean']:.4f} | {row['ppl_mean']:.4f} | {row['runtime_mean']:.5f} |"
         )
+    mean_margin = float(margin["autoreg_rl_pure_margin_mean"])
+    if mean_margin >= 0.0:
+        result_line = "- Under this benchmark, autoregressive pure RL exceeds the strongest heuristic on mean reward."
+    else:
+        result_line = "- Under this benchmark, autoregressive pure RL does not exceed the strongest heuristic on mean reward."
     lines.extend(
         [
             "",
             "## Result",
             "",
-            f"- `autoreg_rl_pure` margin vs best non-RL heuristic: `{margin['autoreg_rl_pure_margin_mean']:.8f}` mean, "
+            f"- `autoreg_rl_pure` margin vs best non-RL heuristic: `{mean_margin:.8f}` mean, "
             f"`{margin['autoreg_rl_pure_margin_min']:.8f}` min.",
             f"- `autoreg_rl_pure` win/tie rate vs best non-RL heuristic: `{margin['autoreg_rl_pure_win_or_tie_rate']:.4f}`.",
-            "- Under this benchmark, autoregressive pure RL exceeds the strongest heuristic on mean reward.",
+            result_line,
             "- `dros_hybrid` remains an upper-reference hybrid method and should not be called pure RL.",
         ]
     )
@@ -70,4 +75,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

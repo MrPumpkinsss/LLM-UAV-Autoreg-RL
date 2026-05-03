@@ -31,6 +31,10 @@ results/**
 !results/benchmark_autoreg_gpu_full/benchmark_margin.json
 !results/benchmark_autoreg_gpu_full/benchmark_report.md
 !results/benchmark_autoreg_gpu_full/benchmark_summary.csv
+!results/benchmark_autoreg_gpu_k64/
+!results/benchmark_autoreg_gpu_k64/benchmark_margin.json
+!results/benchmark_autoreg_gpu_k64/benchmark_report.md
+!results/benchmark_autoreg_gpu_k64/benchmark_summary.csv
 !results/exact_optimal_L7_N5_learned/
 !results/exact_optimal_L7_N5_learned/exact_meta.json
 !results/exact_optimal_L7_N5_learned/exact_report.md

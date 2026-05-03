@@ -10,7 +10,7 @@
   "layer_param_mean": 15730944.0,
   "layer_param_min": 15730944,
   "layer_param_max": 15730944,
-  "forward_latency_ms_mean": 29.51613998739049,
+  "forward_latency_ms_mean": 38.42201001243666,
   "ppl_ref": 30.824672354565333,
   "fitted_gamma": 10.899647591669423,
   "surrogate_fit_r2": 0.9973662721642459,
