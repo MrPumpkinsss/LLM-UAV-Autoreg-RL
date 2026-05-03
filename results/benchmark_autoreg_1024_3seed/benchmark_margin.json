@@ -1,0 +1,15 @@
+{
+  "states": 192,
+  "dros_pure_margin_mean": -11.250934119476996,
+  "dros_pure_margin_min": -99.86165959175531,
+  "dros_pure_win_or_tie_rate": 0.026041666666666668,
+  "dros_pure_strict_win_rate": 0.020833333333333332,
+  "dros_hybrid_margin_mean": 0.0,
+  "dros_hybrid_margin_min": 0.0,
+  "dros_hybrid_win_or_tie_rate": 1.0,
+  "dros_hybrid_strict_win_rate": 0.0,
+  "autoreg_rl_pure_margin_mean": 0.0016853556284514473,
+  "autoreg_rl_pure_margin_min": -0.12469752360868797,
+  "autoreg_rl_pure_win_or_tie_rate": 0.5208333333333334,
+  "autoreg_rl_pure_strict_win_rate": 0.265625
+}

@@ -1,0 +1,566 @@
+
+--- PAGE 1 ---
+Robust Collaborative LLM Inference in
+UA V-enabled Wireless Networks
+Abstract—
+I. I NTRODUCTION
+Recently, edge artiﬁcial intelligence (AI), where intelligence
+is pushed from the network core to the edge via running
+AI algorithms over edge devices, is seen as a promising key
+enabler to meet the great vision of ubiquitous intelligence [1].
+FL has demonstrated its empirical success with theoretical
+convergence guarantees [2]. Many literature have studied how
+to improve the learning performance [3]–[9].
+Our proposed optimization problem yields two main techni-
+cal challenges. First, edge association has been generally NP-
+hard. Then combining the resource allocation forms a complex
+mixed integer nonlinear programming (MINLP) problem with
+coupled optimization variables. Second, although the objective
+function could be equal to a set function via some transfor-
+mation, it is essentially neither submodular nor supermodular,
+which makes the problem more challenging.
+Our main contributions are summarized as follows:
+• Firstly, XXX
+• Secondly,XXX.
+• Thirdly, XXX
+II. R ELATED WORKS
+XXXXXXXXXXXXXX
+III. M ODEL AND PROBLEM FORMULATION
+In this work, we highlights the deployments of a splitting
+LLM across UA V swarms. Speciﬁcally, we consider a general
+collaborative edge networks, composed of a total of N UA VS
+equipped with embedded intelligent computing devices. For
+the requirements of sensing tasks, these UA Vs ﬂy with a
+constant speed according to the predetermined trajectory, to
+perform monitoring missions supported by LLMs. Since LLMs
+usually have a layered architecture consisting of an embedding
+layer, multiple decoder layer, and an output layer, without
+loss of generality, we assume the LLM is with L layers. oi
+represents the size of activations of layer l, 0≤ l≤ L. Let
+Meml be the size of the storage space occupied by a layer
+l ∈ L and cl is the computation requirement. Due to the
+heterogeneous resource limitation in UA Vs, we consider the
+maximum storage capacity Mem max
+n , computation capacity
+Fn, energy threshold En for each UA V n ∈ {1, 2,...,N}.
+Based on the model partition technique, the LLM can be
+divided into multiple submodels and deployed on the UA Vs
+for collaborative inference.
+x
+y
+z
+Model upload
+Model download
+Local model
+Local dataset
+UA Vs as 
+parameter servers
+Coverage range
+Fig. 1: An illustration of service provisioning in MEC.
+A. Latency and Energy Cost Models
+To quantify the collaborative inference overhead, we for-
+mulate the latency and energy cost models. We introduce the
+binary decision variable xl,n to denote the LLM deployment
+strategy. xl,n = 1 indicates layer l is deployed on UA V n,
+otherwise, xl,n = 0. There are two kinds of latency in UA V-
+enabled collaborative task processing, computation latency
+and communication latency. Let tcmp
+l,n denote the computation
+latency of executing inference task for layerl on UA Vn. Then
+we have tcmp
+l,n = cl
+fn
+. The corresponding energy consumption
+is ecmp
+l,n = kof 2
+ncl, where k0 represents the energy efﬁciency
+parameter. On this basis, for each UA V n, the total computa-
+tion latency is tcmp
+n =
+L∑
+l=1
+tcmp
+l,n xl,n, and the total computation
+energy consumption is ecmp
+n =
+L∑
+l=1
+ecmp
+l,n xl,n.
+If layer l and layer l + 1 are deployed on different UA Vs,
+e.g., UA Vn andn′, we usetcom
+l,n,n′ to denote the communication
+latency of transmitting the activation parameters of layer l
+from UA Vn to n′. The achievable uplink data rate between
+UA Vn and UA Vn′ is
+rn,n′ =Bn log(1 + pnhn,n′
+N0
+), (1)
+where Bn is spectrum bandwidth of each communication
+channel, pn is the transmission power of UE n and hn,n′ is
+channel gain between UA Vn andn′. Since the data size of ac-
+tivations of layer l isol, we have tcom
+l,n,n′ =ol/rn,n′, if n̸=n′;
+otherwise tcom
+l,n,n′ = 0. The corresponding energy consumption
+isecom
+l,n,n′ =pntcom
+l,n,n′ = pnol
+rn,n′ , ifn̸=n′; otherwiseecom
+l,n,n′ = 0.
+On this basis, for each UA Vn, the total communication latency
+is tcom
+n =
+L−1∑
+l=1
+N∑
+n′=1
+tcom
+l,n,n′xl,nxl+1,n′. The total computation
+
+
+--- PAGE 2 ---
+energy consumption is ecom
+n =
+L−1∑
+l=1
+N∑
+n′=1
+ecom
+l,n,n′xl,nxl+1,n′.
+The UA Vs hover at ﬁxed positions to simultaneously collect
+data from their coverage areas and perform inference tasks for
+surveillance objectives. The hovering energy consumption of
+UA V noden is modeled as
+ehov
+n =Phov
+n Thov (2)
+where Phov
+n denotes the hovering power of UA V n and Thov
+represents the hovering duration. We have
+Thov =
+N∑
+n=1
+(tcmp
+n +tcom
+n ). (3)
+We assume all UA V devices maintain a ﬁxed hovering duration
+Thov above the monitoring area during task execution. This
+uniﬁed hovering time constraint ensures temporal synchro-
+nization across the swarm while satisfying mission continuity
+requirements.
+B. Packet Drop Probability
+In this work, we use a cyclic redundancy check (CRC)-
+based error detection mechanism [ ?] to identify potential data
+corruption in the local models received at the edge server.
+The unreliability of UA V uplink transmission is characterized
+through the metric of packet drop probability. Concurrently,
+we adopt the assumption that downlink transmission maintains
+reliability, ensuring the successful reception of the global
+model transmitted from the edge server to the UA V . This
+assumption is justiﬁed by the fact that edge servers are typ-
+ically equipped with signiﬁcantly higher transmission power
+capabilities compared to UA Vs, thereby guaranteeing robust
+downlink communication.
+Let γ0 denotes the Signal-to-Noise Ratio (SNR) threshold
+for successful data decoding. The successful transmission
+indicator of UA V n is In = I (SNRn≥γ0), where I(˙)
+is indicator function, SNRn,n′ =
+pnhn,n′
+N0
+. The successful
+transmission indicator In = 1 means UA V n successfully
+transferred the model to the edge server, or 0 otherwise. The
+packet drop probability (PDP) of UA V n through channel is
+given by
+PDPn = Pr (SNRn <γ 0) = Pr
+(pnhn,n′
+N0
+<γ 0
+)
+= Pr
+(
+ξn < γ0N0
+pnhn,n′
+)
+= 1−e
+− γ0N0
+pnhn,n′ (4)
+C. Problem F ormulation
+The performance of the LLMs is commonly quantiﬁed using
+the perplexity (PPL) metric, a standard means in NLP to eval-
+uate how well a probability model predicts a sample. Given
+an LLM and a sequence of N tokens, (i.e., w1,w 2,...,w M ),
+the PPL is deﬁned as
+PPL = exp(− 1
+M
+M∑
+k=1
+logPLLM (w1,w 2,...,w k−1)),
+where PLLM (w1,w 2,...,w k−1) denotes the LLM’s pred-
+cition probability form the previsous k− 1 tokens. A lower
+PPL signiﬁes superior model performance, demonstrating the
+models proﬁciency in accurately predicting the subsequent
+word in a sequence. Hence, in this context, PPL can serve as
+a uniﬁed metric to assess the impact of channel impairments
+on the LLMs ability.
+Based on the aforementioned models, we deﬁne the joint
+optimization problem of submodel deployment and bandwidth
+allocation as follows:
+(P1) : Min
+X,B
+Q(X, B) = αPPL +βT total
+=α· exp
+(
+− 1
+K
+K∑
+k=1
+logPLLM (ωk|ω1,ω 2,...,ω k−1)
+)
++β·
+L∑
+l=1
+N∑
+N =1
+xl,n·tcmp
+l,n +
+L−1∑
+l=1
+N∑
+n=1
+N∑
+n′=1
+xl,n·xl+1,n′·tcom
+l,n,n′
+)
+s.t. C1 :
+L∑
+l=1
+Meml·xl,n≤Mem max
+n ,∀n∈N ,
+C2 :Ecmp
+n +Ecom
+n +Ehov
+n ≤Emax
+n ,∀n∈N ,
+C3 :
+N∑
+n=1
+Bn≤Bmax.
+The above optimization problem involves two variables as
+X ={xl,n}n∈N,l∈L, B ={Bn}n,n′∈N . Constraint (C1) en-
+sures that the total occupied memory space of deployed layers
+cannot exceed the maximum storage capacity. Constraint (C2)
+limits computation energy consumption, transmission energy
+consumption, and hovering energy consumption during col-
+laborative inference in UA V swarm. Constraint (C3) indicates
+the allocated bandwidth should not exceed the communication
+resource capacity.
+Complexity Analysis: Unfortunately, it is non-trivial to
+directly solve the problem P1 due to several challenges. (1)
+Problem (P1) is a mixed integer programming nonconvex
+problem, which is hard to solve. It would takes a long
+time to ﬁnding the optimal submodel deployment decision
+X due to the exponentially large search space (eg., N∗ 2L).
+Besides, the decision variables X and B are coupled with each
+other, which makes it more difﬁcult. (2) When considering
+the performance-overhead trade-off, the relationship between
+the inference performance and decision variables is implicit,
+since there is no speciﬁc mathematical analytical formula in
+the objective function. (3) In practical scenarios, the mobile
+nature of UA Vs often leads to rapidly changing channel state
+and great variability in noise levels among UA V swarm.
+This dynamic environment necessitates continuous adaptation
+of the submodel deployment strategy to maintain inference
+performance under varying wireless channel conditions.
+IV. S OLUTION
+A. Problem Transformation
+Considering the variability of network conditions, we as-
+sume only the wireless channel gains h ={hn,n′},n,n′∈N
+
+
+--- PAGE 3 ---
+are time-varying in the considered period while other system
+parameters in Eqs 1-4 are ﬁxed. For each time frame with
+channel realization h, it falls into the scope of the complex
+optimization problem in P1, which involves two coupled
+decision variables. However, once the binary variables X is
+given, problem P1 can be reduced to a resource allocation
+subproblem as follows.
+(P2) : Min
+B
+Q(B) = αPPL +βT total
+s.t. C2 :Ecmp
+n +Ecom
+n +Ehov
+n ≤Emax
+n ,∀n∈N ,
+C3 :
+N∑
+n=1
+Bn≤Bmax.
+Naturally,PPL is a constant value with the ﬁxed submodel
+deployment strategy. Problem P2 is a convex problem only
+regarding to B, where the optimal bandwidth allocation can
+be efﬁciently solved, e.g., using the LP solver in O(N )
+complexity.
+The major difﬁculty of soling problem P1 lies in the
+submodel deployment variable X. Traditional optimization
+algorithms require iteratively adjusting model splitting and
+deployment decisions towards the optimum, which is funda-
+mentally infeasible for real-time system optimization under
+dynamically changing channel.
+Considering the variability of network conditions and the
+real-time system optimization in distributed UA V swarm, we
+reformulate this optimization problem as a sequential decision-
+making task. To tackle this complex issue, we propose a novel
+deep reinforcement learning-based online submodel deploy-
+ment (DROS) algorithm which is adaptive to the evolving
+environment.
+B. The Markov Decision Process
+The submodel deployment can be formalized as a Markov
+Decision Process (MDP), thus we ﬁrstly deﬁne the three
+critical factors, namely state space, action space and reward
+function as follows.
+(1) State Space.
+The state space S encompasses current wireless channel
+gains h(t), submodel deployment X(t), namely, s(t) =
+{h(t), X(t)}∈S . Through s(t), we can solve problem P2
+and obtain the transmission latency, computation latency, as
+well as the required energy consumption and memory for each
+inference task at this state.
+(2) Action Space.
+The action space A is designed to accommodate a range
+of possible adjustment of submodel deployment by decid-
+ing which layer of the LLM is deployed on which UA V .
+The submodel deployment is deﬁned as a vector of binary
+variable xl,n(t), which is presented by: a(t) = X(t) =
+{xl,n(t)}n∈N,l∈L. This generalized action space provides the
+ﬂexibility to optimize the model splitting strategy dynamically
+in response to varying channel environments.
+(3) Reward Function.
+We aim to minimize the total inference latency and improve
+the inference accuracy in the noise environment. Thus, func-
+tion Q is set as the reward of the our system and we have
+Rt =−Q(X(t), B(t)).
+C. DROS Algorithm
+For dynamically adjusting the splitting of LLMs within
+UA V networks, we aim to learn an submodel deployment
+policy φ : h → X∗ which quickly generates an optimal
+submodel deployment action X∗∈{ 0, 1}N×L of problem P1
+once the channel realization h is revealed at the beginning of
+each time frame. We employ the DROS algorithm to iteratively
+learn such policy φ from the experience by autonomous
+training sampling.
+Our DROS algorithm includes two alterative stages: deploy-
+ment action generation and deployment policy update. The
+generation of the deployment action relies on the use of a
+DNN, which is parameterized by θ, namely, the weights that
+connect the hidden neurons. In the t-th time frame, the DNN
+takes the channel gain h(t) as the input, and outputs a relaxed
+deployment action ˆX (each entry is relaxed to continuous
+between 0 and 1) based on its current deployment policy
+ˆX(t). The relaxed action is then quantized into K binary
+deployment actions, among which one best action X∗(t) is
+selected based on the achievable reward, related to function
+Q in P1. The corresponding {X∗(t), B∗(t)} is output as the
+solution for h(t), which guarantees that all constraints listed
+in (C1)-(C3) are satisﬁed. The network takes the deployment
+action X∗(t), receives a reward Q(X∗(t), B∗(t)), and adds
+the newly obtained state-action pair (h(t), X∗(t)) to the replay
+memory.
+Subsequently, in the policy update stage of the t-th time
+frame, a batch of training samples are drawn from the memory
+to train the DNN, which accordingly updates its parameter
+fromθ(t) toθ(t + 1) (and equivalently the deployment policy
+φθ(t+1)). The new deployment policy φθ(t+1)) is used in the
+next time frame to generate deployment decision X∗(t + 1)
+according to the new channel h(t+1) observed. Such iterations
+repeat thereafter as new channel realizations are observed,
+and the policy φθ(t)) of the DNN is gradually improved. The
+descriptions of the two stages are detailed as follows.
+Deployment Action Generation:
+Suppose that we observe the channel gain realization h(t) in
+thet-th time frame, where t = 1, 2,... . The DNN ﬁrst outputs
+a relaxed computation ofﬂoading action ˆX(t). Thus, we have
+ˆX(t) = fθ(t)(h(t)), (5)
+where ˆxl,n(t)∈ [0, 1].
+Then, we quantize ˆX(t) to obtain K binary deployment
+actions, where K is a design parameter. A larger K results in
+better solution quality and higher computational complexity,
+and vice versa. The quantization function, gK , is deﬁned as
+gK : ˆX(t)→{ X(k)|X(k)∈{ 0, 1}N×L,k = 1, 2,...,K},
+(6)
+
+
+--- PAGE 4 ---
+Recall that each candidate action X(k) can achieve
+Q∗(h(t), X(k)) reward by solving problem P2. Therefore, the
+best deployment action X(t)∗ at the t-th time frame is chosen
+as
+X(t)∗ = arg max
+X(i)∈X(k)
+Q∗(h(t), X(i)). (7)
+Note that the K-times evaluation of Q∗(h(t), X(k)) can
+be processed in parallel to speed up the computation of Eq. 7.
+Then, the network outputs the deployment action X(t) along
+with its corresponding optimal resource allocation B(t).
+Deployment Policy Update:
+The ofﬂoading solution obtained in Eq. 7 will be used to
+update the deployment policy of the DNN. Speciﬁcally, we
+maintain an initially empty memory of limited capacity. At
+the t-th time frame, a new training data sample (h(t), X(t))
+is added to the memory. When the memory is full, the newly
+generated data sample replaces the oldest one.
+We use the experience replay technique [15], [30] to train
+the DNN using the stored data samples.
+Overall, the DNN iteratively learns from the best stateaction
+pairs (h(t), X(t))’s and generates better ofﬂoading decisions
+output as the time progresses. Meanwhile, with the ﬁnite
+memory space constraint, the DNN only learns from the most
+recent data samples generated by the most recent (and more
+reﬁned) ofﬂoading policies. This closed-loop reinforcement
+learning mechanism constantly improves its ofﬂoading policy
+until convergence. We provide the pseudocode of the DROO
+algorithm in Algorithm 1.
+Algorithm 1: An online DROS algorithm to solve the
+submodel deployment decision problem.
+Input: Wireless channel gain h(t) at each time frame t, the
+number of quantized actions K.
+Output: Deployment action X(t)∗, and the corresponding
+optimal resource allocation B(t)∗ for each time frame
+t.
+1 Initialize the DNN with random parameters θ1 and empty
+memory.
+2 Set iteration number M and the training interval δ.
+3 fort = 1, 2,...,M do
+4 Generate a relaxed ofﬂoading action ˆX(t) = fθ(t)(h(t)).
+5 Quantize ˆX(t) intoK binary actions {X(k)} =gK ( ˆX(t)).
+6 Compute Q∗(h(t), X(k)) for all {X(k)} by solving (P2).
+7 Select the best action
+X(t)∗ = arg max
+X(i)∈X(k)
+Q∗(h(t), X(i)).
+8 Update the memory by adding (h(t), X(t)).
+9 if t mod δ = 0 then
+10 Uniformly sample a batch of data set
+{(h(τ ), X(τ ))|τ ∈ T (t)} from the memory.
+11 Train the DNN with {(h(τ ), X(τ ))|τ ∈ T (t)} and
+update θ(t) using the Adam algorithm.
+12 end
+13 end
+Adaptive Setting of K:
+D. The Reward Surrogate Model for Faster RL
+The integration of DROS into our LLM split optimization
+scenario signiﬁcantly enhances the efﬁciency and effectiveness
+of our RL approach. Nevertheless, the slow reasoning capa-
+bility of LLM makes the learning process sluggish. Therefore,
+inspired by the classical model-based reinforce learning, which
+uses a predictive model to simulate the environment, we adopt
+a surrogate model to approximate the reward function, thereby
+boosting the learning efﬁciency.
+V. E VALUATION
+A. Evaluation in Energy Saving Performance
+Evaluation Setup. We assume all the UEs and UA Vs are
+distributed in the 1000 m×1000 m area. If no otherwise stated,
+the number of UEs is 100. Referring to the setting in [10],
+the effective computation capacity fn of each UE is within
+[1, 5] GHz. The data transmission power is set as pn = 1 W.
+The maximum bandwidth of each edge server is the same as
+Bmax
+m = 2 MHz [11]. We set the channel gain at the reference
+distance 1m is h0 =−10 dB and the noise power N0 =−90
+dBm [12]. The FL task can be the image classiﬁcation on a
+dataset MNIST [?]. The parameters setting of FL task is based
+on the work in [13]. We suppose the data size of each UE Dn
+uniformly distributed in [1000, 1500] samples and the number
+of CPU cycles required per sample is in 3×105 cycles/sample.
+The uploaded model size is assumed to a constant as sn = 0.5
+MB. For UA Vs, the related parameters are set as follows:
+the ﬁxed altitude H = 100 m, maximum coverage range
+Rmax = 100 m. The hovering time is 5 minutes, the working
+power of each UA V is set as pm = 1 W and the overall
+energy consumption for edge model aggregation is 100 J. The
+parameters setting of FL task is based on the work in [13]. We
+assume that the parameter set as v = 10,δ = 10, respectively.
+Finally, unless stated otherwise, the global accuracy ε are set
+to be 10−1.
+Baseline. We compare the our proposed algorithm XXX
+with the following three benchmark algorithms.
+Random: the client selection and the trajectory decisions are
+randomly made. UEs are selected randomly, just like the Fe-
+dAvg algorithm. All of decisions are made under constraints.
+? Delay central algorithm: without considering energy con-
+sumption constraints, all decisions are made only to minimize
+the service delay.
+? Myopic algorithm: myopic algorithm imposes a stricter
+constraint to energy consumption during every time slot. The
+long-term energy constraint can be always satisﬁed without
+establishing deﬁcit energy queue. All decisions are made to
+meet the stricter constraint and minimize service delay.
+Based on the the above settings, we run 10 times of different
+algorithms to average the results.
+Evaluation Results. In this section, we demonstrate the
+convergence behavior of the alternating optimization-based
+algorithm and study the inﬂuence of number of UEs, the
+coverage range, the communication bandwidth, the local data
+size and the maximum training latency constraint on the
+overall energy consumption.
+
+
+--- PAGE 5 ---
+1) Convergence: Fig. ?? demonstrates the convergence
+behavior of Algorithm 4, which is devised to obtain the
+energy consumption within an edge server. We can observe
+that compared with the initial scheme, the energy consumption
+is optimized by 35.01%, 36.48%, and 33.97% under different
+data volumes as similar as possible. Our proposed iteration
+optimization algorithm can greatly reduce the Eedge
+m and
+converge fast within ﬁnite iterations.
+VI. C ONCLUSION
+REFERENCES
+[1] W. Saad, M. Bennis, and M. Chen, “A vision of 6g wireless systems:
+Applications, trends, technologies, and open research problems,” IEEE
+Network, vol. 34, no. 3, pp. 134–142, 2020.
+[2] T. Li, A. K. Sahu, M. Zaheer, M. Sanjabi, A. Talwalkar, and V . Smith,
+“Federated optimization in heterogeneous networks,” Proc. MLSys ,
+2020.
+[3] L. Liu, J. Zhang, S. Song, and K. B. Letaief, “Client-edge-cloud
+hierarchical federated learning,” in Proc. IEEE ICC , 2020, pp. 1–6.
+[4] Z. Wang, H. Xu, J. Liu, H. Huang, C. Qiao, and Y . Zhao, “Resource-
+efﬁcient federated learning with hierarchical aggregation in edge com-
+puting,” in Proc. IEEE INFOCOM , 2021, pp. 1–10.
+[5] X. Ouyang, Z. Xie, J. Zhou, J. Huang, and G. Xing, “Clusterﬂ: a
+similarity-aware federated learning system for human activity recogni-
+tion,” in Proceedings of the 19th AICMAS , 2021, pp. 54–66.
+[6] C. T. Dinh, N. H. Tran, M. N. Nguyen, C. S. Hong, W. Bao, A. Y .
+Zomaya, and V . Gramoli, “Federated learning over wireless networks:
+Convergence analysis and resource allocation,” IEEE/ACM Transactions
+on Networking , vol. PP, no. 99, pp. 1–12, 2020.
+[7] L. Yang, Y . Lu, J. Cao, J. Huang, and M. Zhang, “E-tree learning:
+A novel decentralized model learning framework for edge ai,” IEEE
+Internet of Things Journal , vol. 8, no. 14, pp. 11 290–11 304, 2021.
+[8] L. Yang, Y . Gan, J. Cao, and Z. Wang, “Optimizing aggregation frequen-
+cy for hierarchical model training in heterogeneous edge computing,”
+IEEE Transactions on Mobile Computing , 2022.
+[9] X. Zhou, W. Liang, J. She, Z. Yan, I. Kevin, and K. Wang, “Two-
+layer federated learning with heterogeneous model aggregation for
+6g supported internet of vehicles,” IEEE Transactions on V ehicular
+Technology, vol. 70, no. 6, pp. 5308–5317, 2021.
+[10] S. Luo, X. Chen, Q. Wu, Z. Zhou, and S. Yu, “Hfel: Joint edge asso-
+ciation and resource allocation for cost-efﬁcient hierarchical federated
+edge learning,” IEEE Transactions on Wireless Communications, vol. 19,
+no. 10, pp. 6535–6548, 2020.
+[11] Y . Zhou, C. Pan, P. L. Yeoh, K. Wang, M. Elkashlan, B. Vucetic, and
+Y . Li, “Secure communications for uav-enabled mobile edge computing
+systems,” IEEE Transactions on Communications , vol. 68, no. 1, pp.
+376–388, 2019.
+[12] F. Zhou, Y . Wu, H. Sun, and Z. Chu, “Uav-enabled mobile edge
+computing: Ofﬂoading optimization and trajectory design,” inIEEE ICC,
+2018, pp. 1–6.
+[13] Z. Yang, M. Chen, W. Saad, C. S. Hong, and M. Shikh-Bahaei, “Energy
+efﬁcient federated learning over wireless communication networks,”
+IEEE Transactions on Wireless Communications , vol. 20, no. 3, pp.
+1935–1949, 2020.
