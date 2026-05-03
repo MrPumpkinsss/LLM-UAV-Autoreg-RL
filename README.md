@@ -49,11 +49,11 @@ With `k=64`, the learned policy remains feasible but no longer beats the stronge
 
 ![Autoreg-RL vs best heuristic](results/visuals_autoreg/autoreg_vs_heuristic_scatter.png)
 
-## Real LLM Check
+## Real LLM Benchmark
 
-The real-model check loads `Qwen/Qwen3-0.6B` with `bfloat16` on CUDA and measures the profile used by the simulator. It does not distribute the model across UAV hardware; it validates the LLM profile, reference PPL, and the corruption-to-PPL surrogate.
+The real-model check loads `Qwen/Qwen3-0.6B` with `bfloat16` on CUDA and measures the profile used by the simulator. The full baseline comparison then uses the measured layer parameter counts, reference PPL, and fitted corruption curve in the LLM-UAV environment.
 
-Results are stored in `results/qwen3_0p6b_real_profile`.
+Profile results are stored in `results/qwen3_0p6b_real_profile`. Full baseline benchmark results are stored in `results/benchmark_real_profile_k64`.
 
 | item | value |
 |---|---:|
@@ -69,11 +69,57 @@ Results are stored in `results/qwen3_0p6b_real_profile`.
 | surrogate fit R2 | 0.997366 |
 | log-ratio RMSE | 0.019277 |
 
+Real-profile baseline comparison, `3 seeds x 64 states`, `k=64`:
+
+| method | reward | feasible | latency | PPL | runtime/state |
+|---|---:|---:|---:|---:|---:|
+| hybrid_heuristic | -0.269523 +/- 0.082058 | 1.0000 | 2.6010 | 31.5508 | 0.01192s |
+| beam_search | -0.273802 +/- 0.087047 | 1.0000 | 2.6352 | 31.6174 | 0.01192s |
+| autoreg_rl_pure | -0.289838 +/- 0.128823 | 1.0000 | 2.7729 | 31.7920 | 0.03171s |
+| simulated_annealing | -0.344778 +/- 0.133848 | 1.0000 | 3.1465 | 33.1463 | 0.01192s |
+| local_search | -0.345173 +/- 0.133750 | 1.0000 | 3.1503 | 33.1472 | 0.01192s |
+| pdp_aware_greedy | -0.357012 +/- 0.144814 | 1.0000 | 3.2462 | 33.3209 | 0.01192s |
+| latency_greedy | -4.895185 +/- 19.886923 | 0.9583 | 8.3558 | 43.4784 | 0.01192s |
+| block_balanced | -10.417073 +/- 28.891749 | 0.9062 | 12.6621 | 48.6316 | 0.01192s |
+| random | -100.000000 +/- 0.000000 | 0.0000 | 110.8475 | 108.7251 | 0.01192s |
+
+Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profile benchmark: `-0.02031545`. Win/tie rate: `0.2708`.
+
 Reproduce it with:
 
 ```powershell
 python -m src.real_llm_profile --config configs/real_llm.yaml
+python -m src.benchmark_real_profile `
+  --config configs/qwen3_calibrated.yaml `
+  --real-dir results/qwen3_0p6b_real_profile `
+  --policy results/autoreg_rl_teacher/autoreg_policy_best.pt `
+  --states 64 `
+  --seeds "91,92,93" `
+  --beam-width 32 `
+  --anneal-steps 128 `
+  --autoreg-candidates 64 `
+  --out results/benchmark_real_profile_k64 `
+  --device cuda
 ```
+
+## Surrogate Benchmark
+
+The surrogate benchmark is placed last because it validates the PPL model used by both the surrogate and real-profile deployment experiments. It compares the exponential surrogate `PPL_hat = PPL_ref * exp(gamma * damage)` against measured Qwen3-0.6B PPL under controlled embedding corruption.
+
+Results are stored in `results/surrogate_benchmark`.
+
+![Surrogate PPL fit](results/surrogate_benchmark/surrogate_ppl_fit.png)
+
+| metric | value |
+|---|---:|
+| PPL_ref | 30.824672 |
+| gamma | 10.899648 |
+| R2 log-ratio | 0.997366 |
+| RMSE log-ratio | 0.019277 |
+| MAE PPL | 0.796831 |
+| Max abs PPL error | 1.587679 |
+| Mean relative PPL error | 0.015270 |
+| Max relative PPL error | 0.030786 |
 
 ## Repository Layout
 
