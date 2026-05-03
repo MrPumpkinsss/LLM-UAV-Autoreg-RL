@@ -47,6 +47,8 @@ def main() -> None:
     parser.add_argument("--autoreg-refine-steps", type=int, default=0)
     parser.add_argument("--projection-mode", default=None)
     parser.add_argument("--max-blocks", type=int, default=None)
+    parser.add_argument("--candidate-mode", default=None)
+    parser.add_argument("--beam-temperature", type=float, default=None)
     parser.add_argument("--out", default="results/benchmark_autoreg")
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
@@ -58,6 +60,10 @@ def main() -> None:
         cfg.setdefault("ar_rl", {})["projection_mode"] = args.projection_mode
     if args.max_blocks is not None:
         cfg.setdefault("ar_rl", {})["max_blocks"] = args.max_blocks
+    if args.candidate_mode is not None:
+        cfg.setdefault("ar_rl", {})["candidate_mode"] = args.candidate_mode
+    if args.beam_temperature is not None:
+        cfg.setdefault("ar_rl", {})["beam_temperature"] = args.beam_temperature
     out_dir = ensure_dir(args.out)
     rows: list[dict] = []
 

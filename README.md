@@ -87,23 +87,23 @@ Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profil
 
 ### Best Real-Profile k=16 Block Policy
 
-The strongest current learned policy uses the real Qwen3-0.6B profile, reward-weighted teacher warm start, and a pure RL block projection decoder. Inference still samples only learned-policy candidates; no beam-search, local-search, simulated-annealing, or greedy heuristic actions are inserted into the RL candidate pool.
+The strongest current learned policy uses the real Qwen3-0.6B profile, reward-weighted teacher warm start, a pure RL block projection decoder, and a pure policy beam candidate generator. Inference still uses only learned-policy candidates; no baseline beam-search, local-search, simulated-annealing, or greedy heuristic actions are inserted into the RL candidate pool.
 
 Checkpoint: `results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt`
-Benchmark: `results/benchmark_real_profile_k16_blocks`
+Benchmark: `results/benchmark_real_profile_k16_blocks_policy_beam`
 
-Real-profile baseline comparison, `3 seeds x 64 states`, `k=16`, `max_blocks=5`:
+Real-profile baseline comparison, `3 seeds x 64 states`, `k=16`, `max_blocks=5`, `candidate_mode=beam`:
 
 | method | reward | feasible | latency | PPL | runtime/state |
 |---|---:|---:|---:|---:|---:|
-| hybrid_heuristic | -0.269523 +/- 0.082058 | 1.0000 | 2.6010 | 31.5508 | 0.01080s |
-| beam_search | -0.273802 +/- 0.087047 | 1.0000 | 2.6352 | 31.6174 | 0.01080s |
-| autoreg_rl_pure | -0.280849 +/- 0.088713 | 1.0000 | 2.7128 | 31.5618 | 0.02390s |
-| simulated_annealing | -0.344778 +/- 0.133848 | 1.0000 | 3.1465 | 33.1463 | 0.01080s |
-| local_search | -0.345173 +/- 0.133750 | 1.0000 | 3.1503 | 33.1472 | 0.01080s |
-| pdp_aware_greedy | -0.357012 +/- 0.144814 | 1.0000 | 3.2462 | 33.3209 | 0.01080s |
+| autoreg_rl_pure | -0.261002 +/- 0.072367 | 1.0000 | 2.5350 | 31.4028 | 0.01985s |
+| hybrid_heuristic | -0.269523 +/- 0.082058 | 1.0000 | 2.6010 | 31.5508 | 0.01045s |
+| beam_search | -0.273802 +/- 0.087047 | 1.0000 | 2.6352 | 31.6174 | 0.01045s |
+| simulated_annealing | -0.344778 +/- 0.133848 | 1.0000 | 3.1465 | 33.1463 | 0.01045s |
+| local_search | -0.345173 +/- 0.133750 | 1.0000 | 3.1503 | 33.1472 | 0.01045s |
+| pdp_aware_greedy | -0.357012 +/- 0.144814 | 1.0000 | 3.2462 | 33.3209 | 0.01045s |
 
-Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `-0.01132624`. Win/tie rate: `0.3073`.
+Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `0.00852120`. Win/tie rate: `0.6406`.
 
 Reproduce it with:
 
@@ -120,7 +120,9 @@ python -m src.benchmark_real_profile `
   --autoreg-refine-steps 0 `
   --projection-mode blocks `
   --max-blocks 5 `
-  --out results/benchmark_real_profile_k16_blocks `
+  --candidate-mode beam `
+  --beam-temperature 1.0 `
+  --out results/benchmark_real_profile_k16_blocks_policy_beam `
   --device cuda
 ```
 

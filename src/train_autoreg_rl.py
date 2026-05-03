@@ -328,6 +328,8 @@ def main() -> None:
     parser.add_argument("--teacher-min-margin", type=float, default=None)
     parser.add_argument("--projection-mode", default=None)
     parser.add_argument("--max-blocks", type=int, default=None)
+    parser.add_argument("--candidate-mode", default=None)
+    parser.add_argument("--beam-temperature", type=float, default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -366,6 +368,10 @@ def main() -> None:
         ar_cfg["projection_mode"] = args.projection_mode
     if args.max_blocks is not None:
         ar_cfg["max_blocks"] = args.max_blocks
+    if args.candidate_mode is not None:
+        ar_cfg["candidate_mode"] = args.candidate_mode
+    if args.beam_temperature is not None:
+        ar_cfg["beam_temperature"] = args.beam_temperature
 
     seed = int(cfg["seed"])
     set_seed(seed)

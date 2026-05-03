@@ -245,6 +245,65 @@ class AutoregRLAgent:
             actions_t = torch.stack(actions, dim=1)
             return actions_t.cpu().numpy().astype(np.int64)
 
+    @torch.no_grad()
+    def _policy_candidates_beam_fast(
+        self,
+        state_vec_np: np.ndarray,
+        mem_caps_np: np.ndarray,
+        beam_width: int,
+        temperature: float,
+    ) -> np.ndarray:
+        self.policy.eval()
+        n = self.env.num_uavs
+        beam_cap = max(1, int(beam_width))
+        state = torch.from_numpy(state_vec_np.astype(np.float32, copy=False)).to(self.device).unsqueeze(0)
+        caps = torch.from_numpy(mem_caps_np.astype(np.float32, copy=False)).to(self.device).unsqueeze(0)
+        temp = max(float(temperature), 1e-6)
+
+        with torch.inference_mode():
+            state_h_base = self.policy.encode_state(state).squeeze(0)
+            state_h = state_h_base.unsqueeze(0)
+            caps = caps.expand(1, -1)
+            mem_used = torch.zeros(1, n, device=self.device)
+            prev_onehot = torch.zeros(1, n, device=self.device)
+            seqs = torch.empty((1, 0), dtype=torch.long, device=self.device)
+            scores = torch.zeros(1, device=self.device)
+
+            for layer in range(self.env.num_layers):
+                beam_count = int(scores.shape[0])
+                state_h = state_h_base.unsqueeze(0).expand(beam_count, -1)
+                layer_feat = self.layer_features[layer].unsqueeze(0).expand(beam_count, -1)
+                layer_frac = torch.full((beam_count, 1), layer / max(self.env.num_layers - 1, 1), device=self.device)
+                remaining_frac = 1.0 - mem_used.sum(dim=-1, keepdim=True)
+                logits = self.policy.step_logits(state_h, layer_feat, prev_onehot, mem_used, layer_frac, remaining_frac)
+
+                layer_mem = float(self.env.profile.mem_bytes[layer] / max(float(np.sum(self.env.profile.mem_bytes)), 1.0))
+                allowed = mem_used + layer_mem <= caps.expand(beam_count, -1) + 1e-8
+                no_allowed = ~torch.any(allowed, dim=-1, keepdim=True)
+                allowed = torch.where(no_allowed, torch.ones_like(allowed), allowed)
+                masked_logits = logits.masked_fill(~allowed, -1.0e9)
+                log_probs = torch.log_softmax(masked_logits / temp, dim=-1)
+
+                expanded_scores = scores[:, None] + log_probs
+                flat_scores = expanded_scores.reshape(-1)
+                topk = min(beam_cap, int(flat_scores.shape[0]))
+                top_scores, top_idx = torch.topk(flat_scores, k=topk)
+                parent_idx = torch.div(top_idx, n, rounding_mode="floor")
+                action_idx = top_idx % n
+
+                if seqs.shape[1] == 0:
+                    seqs = action_idx.unsqueeze(-1)
+                else:
+                    seqs = torch.cat([seqs[parent_idx], action_idx.unsqueeze(-1)], dim=1)
+                scores = top_scores
+                parent_mem = mem_used[parent_idx]
+                parent_prev = prev_onehot[parent_idx]
+                chosen_onehot = F.one_hot(action_idx, num_classes=n).float()
+                mem_used = parent_mem + chosen_onehot * layer_mem
+                prev_onehot = chosen_onehot
+
+            return seqs.cpu().numpy().astype(np.int64)
+
     def _eval_temperature_schedule(self, candidates: int, default_temperature: float, greedy_count: int) -> np.ndarray:
         sample_count = max(0, candidates - greedy_count)
         temperatures = [1e-6] * min(greedy_count, candidates)
@@ -284,8 +343,41 @@ class AutoregRLAgent:
         self.policy.eval()
         state_vec = self.env.state_vector(state)
         caps = self.mem_caps_norm(state)
-        temperatures = self._eval_temperature_schedule(candidates, temperature, greedy_count)
-        actions = self._policy_candidates_fast(state_vec, caps, temperatures, greedy_count=greedy_count)
+        mode = str(self.rl_cfg.get("candidate_mode", "sample")).lower()
+        if mode == "beam":
+            actions = self._policy_candidates_beam_fast(
+                state_vec,
+                caps,
+                beam_width=candidates,
+                temperature=float(self.rl_cfg.get("beam_temperature", temperature)),
+            )
+        elif mode in {"beam_mix", "mixed_beam"}:
+            temp_values = self.rl_cfg.get("eval_temperatures", None) or [float(temperature)]
+            per_temp = max(1, candidates // len(temp_values))
+            parts = []
+            for temp_value in temp_values:
+                parts.append(
+                    self._policy_candidates_beam_fast(
+                        state_vec,
+                        caps,
+                        beam_width=per_temp,
+                        temperature=float(temp_value),
+                    )
+                )
+            actions = np.concatenate(parts, axis=0) if parts else np.empty((0, self.env.num_layers), dtype=np.int64)
+            if actions.shape[0] < candidates:
+                pad = self._policy_candidates_fast(
+                    state_vec,
+                    caps,
+                    self._eval_temperature_schedule(candidates - actions.shape[0], temperature, 0),
+                    greedy_count=0,
+                )
+                actions = np.concatenate([actions, pad], axis=0)
+            if actions.shape[0] > candidates:
+                actions = actions[:candidates]
+        else:
+            temperatures = self._eval_temperature_schedule(candidates, temperature, greedy_count)
+            actions = self._policy_candidates_fast(state_vec, caps, temperatures, greedy_count=greedy_count)
         repaired = np.stack([self.project_candidate_action(action, state, max_passes=2) for action in actions])
         return repaired
 
