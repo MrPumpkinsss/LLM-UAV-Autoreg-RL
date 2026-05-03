@@ -68,21 +68,24 @@ class AutoregReplayBuffer:
         self.states: deque[np.ndarray] = deque(maxlen=capacity)
         self.mem_caps: deque[np.ndarray] = deque(maxlen=capacity)
         self.actions: deque[np.ndarray] = deque(maxlen=capacity)
+        self.weights: deque[float] = deque(maxlen=capacity)
 
-    def add(self, state_vec: np.ndarray, mem_caps: np.ndarray, action: np.ndarray) -> None:
+    def add(self, state_vec: np.ndarray, mem_caps: np.ndarray, action: np.ndarray, weight: float = 1.0) -> None:
         self.states.append(state_vec.astype(np.float32, copy=True))
         self.mem_caps.append(mem_caps.astype(np.float32, copy=True))
         self.actions.append(action.astype(np.int64, copy=True))
+        self.weights.append(float(weight))
 
     def __len__(self) -> int:
         return len(self.states)
 
-    def sample(self, batch_size: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def sample(self, batch_size: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         idx = rng.integers(0, len(self.states), size=batch_size)
         states = np.stack([self.states[int(i)] for i in idx])
         caps = np.stack([self.mem_caps[int(i)] for i in idx])
         actions = np.stack([self.actions[int(i)] for i in idx])
-        return states, caps, actions
+        weights = np.asarray([self.weights[int(i)] for i in idx], dtype=np.float32)
+        return states, caps, actions, weights
 
 
 @dataclass
@@ -260,6 +263,16 @@ class AutoregRLAgent:
             temperatures.extend([float(default_temperature)] * sample_count)
         return np.asarray(temperatures[:candidates], dtype=np.float32)
 
+    def project_candidate_action(self, action: np.ndarray, state: SimState, max_passes: int = 2) -> np.ndarray:
+        mode = str(self.rl_cfg.get("projection_mode", "action")).lower()
+        if mode in {"block", "blocks", "project_blocks"}:
+            return self.env.project_blocks(
+                action,
+                state,
+                max_blocks=int(self.rl_cfg.get("max_blocks", self.env.num_uavs)),
+            )
+        return self.env.project_action(action, state, max_passes=max_passes)
+
     @torch.no_grad()
     def policy_candidates(
         self,
@@ -273,7 +286,7 @@ class AutoregRLAgent:
         caps = self.mem_caps_norm(state)
         temperatures = self._eval_temperature_schedule(candidates, temperature, greedy_count)
         actions = self._policy_candidates_fast(state_vec, caps, temperatures, greedy_count=greedy_count)
-        repaired = np.stack([self.env.project_action(action, state, max_passes=2) for action in actions])
+        repaired = np.stack([self.project_candidate_action(action, state, max_passes=2) for action in actions])
         return repaired
 
     def select_policy_candidate(self, state: SimState, candidates: int, temperature: float = 0.5) -> AutoregPolicyEval:
@@ -324,7 +337,7 @@ class AutoregRLAgent:
                 break
             if not moved:
                 continue
-            trial = self.env.project_action(trial, state, max_passes=1)
+            trial = self.project_candidate_action(trial, state, max_passes=1)
             ev = self.env.evaluate(state, trial)
             delta = ev.reward - current_ev.reward
             accept = delta >= 0.0 or self.rng.random() < float(np.exp(delta / max(temp, 1e-9)))
@@ -346,12 +359,23 @@ class AutoregRLAgent:
         energy_excess = max(0.0, ev.max_energy_ratio - 1.0)
         return -1.0 - penalty * (mem_excess + energy_excess) - cost_weight * min(float(ev.cost), 100.0)
 
-    def supervised_loss(self, states_np: np.ndarray, caps_np: np.ndarray, actions_np: np.ndarray) -> torch.Tensor:
+    def supervised_loss(
+        self,
+        states_np: np.ndarray,
+        caps_np: np.ndarray,
+        actions_np: np.ndarray,
+        weights_np: np.ndarray | None = None,
+    ) -> torch.Tensor:
         bsz = states_np.shape[0]
         n = self.env.num_uavs
         states = torch.from_numpy(states_np.astype(np.float32, copy=False)).to(self.device)
         caps = torch.from_numpy(caps_np.astype(np.float32, copy=False)).to(self.device)
         targets = torch.from_numpy(actions_np.astype(np.int64, copy=False)).to(self.device)
+        if weights_np is None:
+            weights = torch.ones(bsz, device=self.device)
+        else:
+            weights = torch.from_numpy(weights_np.astype(np.float32, copy=False)).to(self.device)
+        weights = weights / torch.clamp(weights.mean(), min=1e-6)
         state_h = self.policy.encode_state(states)
         mem_used = torch.zeros(bsz, n, device=self.device)
         prev_onehot = torch.zeros(bsz, n, device=self.device)
@@ -362,7 +386,7 @@ class AutoregRLAgent:
             remaining_frac = 1.0 - mem_used.sum(dim=-1, keepdim=True)
             logits = self.policy.step_logits(state_h, layer_feat, prev_onehot, mem_used, layer_frac, remaining_frac)
             dist = self._masked_dist(logits, mem_used, caps, layer, temperature=1.0)
-            losses.append(-dist.log_prob(targets[:, layer]).mean())
+            losses.append((-dist.log_prob(targets[:, layer]) * weights).mean())
             current = F.one_hot(targets[:, layer], num_classes=n).float()
             layer_mem = float(self.env.profile.mem_bytes[layer] / max(float(np.sum(self.env.profile.mem_bytes)), 1.0))
             mem_used = mem_used + current * layer_mem
@@ -375,8 +399,8 @@ class AutoregRLAgent:
         losses = []
         self.policy.train()
         for _ in range(updates):
-            states_np, caps_np, actions_np = self.replay.sample(batch_size, self.rng)
-            loss = self.supervised_loss(states_np, caps_np, actions_np)
+            states_np, caps_np, actions_np, weights_np = self.replay.sample(batch_size, self.rng)
+            loss = self.supervised_loss(states_np, caps_np, actions_np, weights_np)
             self.optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.policy.parameters(), float(self.rl_cfg.get("grad_clip", 1.0)))

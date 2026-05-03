@@ -14,7 +14,7 @@ from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
-from .llm_profile import LLMProfile, build_qwen3_0p6b_profile
+from .llm_profile import LLMProfile, build_qwen3_0p6b_real_profile
 
 
 def set_seed(seed: int) -> None:
@@ -36,34 +36,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 def build_real_profile(cfg: dict, real_dir: Path, rng: np.random.Generator) -> LLMProfile:
-    summary = json.loads((real_dir / "real_profile_summary.json").read_text(encoding="utf-8"))
-    layer_params = np.load(real_dir / "layer_params.npy").astype(np.float64)
-    profile_cfg = dict(cfg["profile"])
-    profile_cfg["num_layers"] = int(summary["num_layers"])
-    profile_cfg["hidden_size"] = int(summary["hidden_size"])
-    profile_cfg["intermediate_size"] = int(summary["intermediate_size"])
-    profile_cfg["num_attention_heads"] = int(summary["num_attention_heads"])
-    profile_cfg["num_key_value_heads"] = int(summary["num_key_value_heads"])
-    profile_cfg["ppl_ref"] = float(summary["ppl_ref"])
-    profile_cfg["ppl_gamma"] = float(summary["fitted_gamma"])
-
-    base = build_qwen3_0p6b_profile(profile_cfg, rng)
-    dtype_bytes = int(profile_cfg.get("dtype_bytes", 2))
-    mem_bytes = layer_params * dtype_bytes
-    activation_bytes = base.activation_bytes.copy()
-    importance = activation_bytes / max(float(np.sum(activation_bytes)), 1.0)
-    cycles_scale = mem_bytes / max(float(np.mean(mem_bytes)), 1.0)
-    compute_cycles = float(np.mean(base.compute_cycles)) * cycles_scale
-    return LLMProfile(
-        model_name=str(summary["model_id"]),
-        num_layers=int(summary["num_layers"]),
-        mem_bytes=mem_bytes.astype(np.float64),
-        compute_cycles=compute_cycles.astype(np.float64),
-        activation_bytes=activation_bytes.astype(np.float64),
-        importance=importance.astype(np.float64),
-        ppl_ref=float(summary["ppl_ref"]),
-        ppl_gamma=float(summary["fitted_gamma"]),
-    )
+    return build_qwen3_0p6b_real_profile(cfg["profile"], real_dir, rng)
 
 
 def main() -> None:
@@ -77,6 +50,8 @@ def main() -> None:
     parser.add_argument("--anneal-steps", type=int, default=128)
     parser.add_argument("--autoreg-candidates", type=int, default=64)
     parser.add_argument("--autoreg-refine-steps", type=int, default=0)
+    parser.add_argument("--projection-mode", default=None)
+    parser.add_argument("--max-blocks", type=int, default=None)
     parser.add_argument("--out", default="results/benchmark_real_profile_k64")
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
@@ -84,6 +59,10 @@ def main() -> None:
     cfg = load_config(args.config)
     cfg["uav"]["num_uavs"] = 5
     cfg.setdefault("ar_rl", {})["policy_refine_steps"] = args.autoreg_refine_steps
+    if args.projection_mode is not None:
+        cfg.setdefault("ar_rl", {})["projection_mode"] = args.projection_mode
+    if args.max_blocks is not None:
+        cfg.setdefault("ar_rl", {})["max_blocks"] = args.max_blocks
     out_dir = ensure_dir(args.out)
     rows: list[dict] = []
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from pathlib import Path
 
 import numpy as np
 
@@ -66,4 +68,38 @@ def build_qwen3_0p6b_profile(cfg: dict, rng: np.random.Generator) -> LLMProfile:
         importance=importance.astype(np.float64),
         ppl_ref=float(cfg["ppl_ref"]),
         ppl_gamma=float(cfg["ppl_gamma"]),
+    )
+
+
+def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.random.Generator) -> LLMProfile:
+    real_path = Path(real_dir)
+    summary = json.loads((real_path / "real_profile_summary.json").read_text(encoding="utf-8"))
+    layer_params = np.load(real_path / "layer_params.npy").astype(np.float64)
+
+    profile_cfg = dict(cfg)
+    profile_cfg["num_layers"] = int(summary["num_layers"])
+    profile_cfg["hidden_size"] = int(summary["hidden_size"])
+    profile_cfg["intermediate_size"] = int(summary["intermediate_size"])
+    profile_cfg["num_attention_heads"] = int(summary["num_attention_heads"])
+    profile_cfg["num_key_value_heads"] = int(summary["num_key_value_heads"])
+    profile_cfg["ppl_ref"] = float(summary["ppl_ref"])
+    profile_cfg["ppl_gamma"] = float(summary["fitted_gamma"])
+
+    base = build_qwen3_0p6b_profile(profile_cfg, rng)
+    dtype_bytes = int(profile_cfg.get("dtype_bytes", 2))
+    mem_bytes = layer_params * dtype_bytes
+    activation_bytes = base.activation_bytes.copy()
+    importance = activation_bytes / max(float(np.sum(activation_bytes)), 1.0)
+    cycles_scale = mem_bytes / max(float(np.mean(mem_bytes)), 1.0)
+    compute_cycles = float(np.mean(base.compute_cycles)) * cycles_scale
+
+    return LLMProfile(
+        model_name=str(summary["model_id"]),
+        num_layers=int(summary["num_layers"]),
+        mem_bytes=mem_bytes.astype(np.float64),
+        compute_cycles=compute_cycles.astype(np.float64),
+        activation_bytes=activation_bytes.astype(np.float64),
+        importance=importance.astype(np.float64),
+        ppl_ref=float(summary["ppl_ref"]),
+        ppl_gamma=float(summary["fitted_gamma"]),
     )

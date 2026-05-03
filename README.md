@@ -85,6 +85,45 @@ Real-profile baseline comparison, `3 seeds x 64 states`, `k=64`:
 
 Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profile benchmark: `-0.02031545`. Win/tie rate: `0.2708`.
 
+### Best Real-Profile k=16 Block Policy
+
+The strongest current learned policy uses the real Qwen3-0.6B profile, reward-weighted teacher warm start, and a pure RL block projection decoder. Inference still samples only learned-policy candidates; no beam-search, local-search, simulated-annealing, or greedy heuristic actions are inserted into the RL candidate pool.
+
+Checkpoint: `results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt`
+Benchmark: `results/benchmark_real_profile_k16_blocks`
+
+Real-profile baseline comparison, `3 seeds x 64 states`, `k=16`, `max_blocks=5`:
+
+| method | reward | feasible | latency | PPL | runtime/state |
+|---|---:|---:|---:|---:|---:|
+| hybrid_heuristic | -0.269523 +/- 0.082058 | 1.0000 | 2.6010 | 31.5508 | 0.01080s |
+| beam_search | -0.273802 +/- 0.087047 | 1.0000 | 2.6352 | 31.6174 | 0.01080s |
+| autoreg_rl_pure | -0.280849 +/- 0.088713 | 1.0000 | 2.7128 | 31.5618 | 0.02390s |
+| simulated_annealing | -0.344778 +/- 0.133848 | 1.0000 | 3.1465 | 33.1463 | 0.01080s |
+| local_search | -0.345173 +/- 0.133750 | 1.0000 | 3.1503 | 33.1472 | 0.01080s |
+| pdp_aware_greedy | -0.357012 +/- 0.144814 | 1.0000 | 3.2462 | 33.3209 | 0.01080s |
+
+Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `-0.01132624`. Win/tie rate: `0.3073`.
+
+Reproduce it with:
+
+```powershell
+python -m src.benchmark_real_profile `
+  --config configs/qwen3_calibrated.yaml `
+  --real-dir results/qwen3_0p6b_real_profile `
+  --policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
+  --states 64 `
+  --seeds "91,92,93" `
+  --beam-width 32 `
+  --anneal-steps 128 `
+  --autoreg-candidates 16 `
+  --autoreg-refine-steps 0 `
+  --projection-mode blocks `
+  --max-blocks 5 `
+  --out results/benchmark_real_profile_k16_blocks `
+  --device cuda
+```
+
 Reproduce it with:
 
 ```powershell

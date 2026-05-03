@@ -39,6 +39,16 @@ results/**
 !results/benchmark_real_profile_k64/benchmark_margin.json
 !results/benchmark_real_profile_k64/benchmark_report.md
 !results/benchmark_real_profile_k64/benchmark_summary.csv
+!results/autoreg_rl_real_k16_blocks/
+!results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt
+!results/autoreg_rl_real_k16_blocks/config_used.json
+!results/autoreg_rl_real_k16_blocks/eval_log.csv
+!results/autoreg_rl_real_k16_blocks/summary.json
+!results/autoreg_rl_real_k16_blocks/train_log.csv
+!results/benchmark_real_profile_k16_blocks/
+!results/benchmark_real_profile_k16_blocks/benchmark_margin.json
+!results/benchmark_real_profile_k16_blocks/benchmark_report.md
+!results/benchmark_real_profile_k16_blocks/benchmark_summary.csv
 !results/exact_optimal_L7_N5_learned/
 !results/exact_optimal_L7_N5_learned/exact_meta.json
 !results/exact_optimal_L7_N5_learned/exact_report.md

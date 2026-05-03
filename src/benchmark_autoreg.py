@@ -45,6 +45,8 @@ def main() -> None:
     parser.add_argument("--anneal-steps", type=int, default=128)
     parser.add_argument("--autoreg-candidates", type=int, default=1024)
     parser.add_argument("--autoreg-refine-steps", type=int, default=0)
+    parser.add_argument("--projection-mode", default=None)
+    parser.add_argument("--max-blocks", type=int, default=None)
     parser.add_argument("--out", default="results/benchmark_autoreg")
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
@@ -52,6 +54,10 @@ def main() -> None:
     cfg = load_config(args.config)
     cfg["uav"]["num_uavs"] = 5
     cfg.setdefault("ar_rl", {})["policy_refine_steps"] = args.autoreg_refine_steps
+    if args.projection_mode is not None:
+        cfg.setdefault("ar_rl", {})["projection_mode"] = args.projection_mode
+    if args.max_blocks is not None:
+        cfg.setdefault("ar_rl", {})["max_blocks"] = args.max_blocks
     out_dir = ensure_dir(args.out)
     rows: list[dict] = []
 
@@ -162,4 +168,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
