@@ -21,17 +21,17 @@ Hard-infeasible deployments receive `reward = -100.0`. The calibrated config use
 
 | method | reward | feasible | latency | PPL | runtime/state |
 |---|---:|---:|---:|---:|---:|
-| hybrid_heuristic | -0.199647 +/- 0.069228 | 1.0000 | 1.9431 | 31.2361 | 0.01137s |
-| beam_search | -0.201854 +/- 0.072310 | 1.0000 | 1.9615 | 31.2646 | 0.01137s |
-| autoreg_rl_pure | -0.212179 +/- 0.079568 | 1.0000 | 2.0456 | 31.4119 | 0.22807s |
-| simulated_annealing | -0.267850 +/- 0.134952 | 1.0000 | 2.4852 | 32.3142 | 0.01137s |
-| local_search | -0.269031 +/- 0.136775 | 1.0000 | 2.4911 | 32.3601 | 0.01137s |
-| pdp_aware_greedy | -0.286648 +/- 0.154524 | 1.0000 | 2.6246 | 32.6885 | 0.01137s |
-| latency_greedy | -8.859663 +/- 27.554457 | 0.9167 | 10.4054 | 41.0712 | 0.01137s |
-| block_balanced | -16.508051 +/- 36.025838 | 0.8438 | 18.0614 | 47.5062 | 0.01137s |
-| random | -100.000000 +/- 0.000000 | 0.0000 | 107.6689 | 100.4916 | 0.01137s |
+| hybrid_heuristic | -0.199647 +/- 0.069228 | 1.0000 | 1.9431 | 31.2361 | 0.01075s |
+| beam_search | -0.201854 +/- 0.072310 | 1.0000 | 1.9615 | 31.2646 | 0.01075s |
+| autoreg_rl_pure | -0.212208 +/- 0.076782 | 1.0000 | 2.0500 | 31.3805 | 0.02837s |
+| simulated_annealing | -0.267850 +/- 0.134952 | 1.0000 | 2.4852 | 32.3142 | 0.01075s |
+| local_search | -0.269031 +/- 0.136775 | 1.0000 | 2.4911 | 32.3601 | 0.01075s |
+| pdp_aware_greedy | -0.286648 +/- 0.154524 | 1.0000 | 2.6246 | 32.6885 | 0.01075s |
+| latency_greedy | -8.859663 +/- 27.554457 | 0.9167 | 10.4054 | 41.0712 | 0.01075s |
+| block_balanced | -16.508051 +/- 36.025838 | 0.8438 | 18.0614 | 47.5062 | 0.01075s |
+| random | -100.000000 +/- 0.000000 | 0.0000 | 107.6689 | 100.4916 | 0.01075s |
 
-Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `-0.01253196`. Win/tie rate: `0.3906`.
+Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `-0.01256090`. Win/tie rate: `0.3906`.
 
 With `k=64`, the learned policy remains feasible but no longer beats the strongest heuristic on mean reward.
 

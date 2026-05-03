@@ -190,6 +190,77 @@ class AutoregRLAgent:
         )
 
     @torch.no_grad()
+    def _policy_candidates_fast(
+        self,
+        state_vec_np: np.ndarray,
+        mem_caps_np: np.ndarray,
+        temperatures_np: np.ndarray,
+        greedy_count: int,
+    ) -> np.ndarray:
+        self.policy.eval()
+        n = self.env.num_uavs
+        candidates = int(temperatures_np.shape[0])
+        if candidates <= 0:
+            return np.empty((0, self.env.num_layers), dtype=np.int64)
+
+        states = torch.from_numpy(state_vec_np.astype(np.float32, copy=False)).to(self.device).unsqueeze(0)
+        caps = torch.from_numpy(mem_caps_np.astype(np.float32, copy=False)).to(self.device).unsqueeze(0)
+        temps = torch.from_numpy(temperatures_np.astype(np.float32, copy=False)).to(self.device).clamp_min(1e-6)
+        greedy_mask = torch.zeros(candidates, dtype=torch.bool, device=self.device)
+        if greedy_count > 0:
+            greedy_mask[: min(greedy_count, candidates)] = True
+
+        with torch.inference_mode():
+            state_h = self.policy.encode_state(states).expand(candidates, -1)
+            caps = caps.expand(candidates, -1)
+            mem_used = torch.zeros(candidates, n, device=self.device)
+            prev_onehot = torch.zeros(candidates, n, device=self.device)
+            actions = []
+
+            for layer in range(self.env.num_layers):
+                layer_feat = self.layer_features[layer].unsqueeze(0).expand(candidates, -1)
+                layer_frac = torch.full((candidates, 1), layer / max(self.env.num_layers - 1, 1), device=self.device)
+                remaining_frac = 1.0 - mem_used.sum(dim=-1, keepdim=True)
+                logits = self.policy.step_logits(state_h, layer_feat, prev_onehot, mem_used, layer_frac, remaining_frac)
+
+                layer_mem = float(self.env.profile.mem_bytes[layer] / max(float(np.sum(self.env.profile.mem_bytes)), 1.0))
+                allowed = mem_used + layer_mem <= caps + 1e-8
+                no_allowed = ~torch.any(allowed, dim=-1, keepdim=True)
+                allowed = torch.where(no_allowed, torch.ones_like(allowed), allowed)
+                masked_logits = logits.masked_fill(~allowed, -1.0e9)
+
+                greedy_choice = torch.argmax(masked_logits, dim=-1)
+                scaled_logits = masked_logits / temps[:, None]
+                probs = torch.softmax(scaled_logits, dim=-1)
+                sampled = torch.multinomial(probs, num_samples=1).squeeze(-1)
+                sampled = torch.where(greedy_mask, greedy_choice, sampled)
+
+                actions.append(sampled)
+                prev_onehot = F.one_hot(sampled, num_classes=n).float()
+                mem_used = mem_used + prev_onehot * layer_mem
+
+            actions_t = torch.stack(actions, dim=1)
+            return actions_t.cpu().numpy().astype(np.int64)
+
+    def _eval_temperature_schedule(self, candidates: int, default_temperature: float, greedy_count: int) -> np.ndarray:
+        sample_count = max(0, candidates - greedy_count)
+        temperatures = [1e-6] * min(greedy_count, candidates)
+        if sample_count <= 0:
+            return np.asarray(temperatures, dtype=np.float32)
+
+        temps = self.rl_cfg.get("eval_temperatures", None)
+        if temps:
+            temp_values = [float(x) for x in temps]
+            counts = [sample_count // len(temp_values)] * len(temp_values)
+            for i in range(sample_count % len(temp_values)):
+                counts[i] += 1
+            for temp_value, count in zip(temp_values, counts):
+                temperatures.extend([temp_value] * count)
+        else:
+            temperatures.extend([float(default_temperature)] * sample_count)
+        return np.asarray(temperatures[:candidates], dtype=np.float32)
+
+    @torch.no_grad()
     def policy_candidates(
         self,
         state: SimState,
@@ -200,27 +271,9 @@ class AutoregRLAgent:
         self.policy.eval()
         state_vec = self.env.state_vector(state)
         caps = self.mem_caps_norm(state)
-        sample_count = max(0, candidates - greedy_count)
-        actions = []
-        for temp in [1e-4] * greedy_count:
-            batch = self.sample_batch(state_vec[None, :], caps[None, :], candidates=1, temperature=temp)
-            actions.append(batch.actions[0, 0])
-        if sample_count > 0:
-            temps = self.rl_cfg.get("eval_temperatures", None)
-            if temps:
-                temp_values = [float(x) for x in temps]
-                counts = [sample_count // len(temp_values)] * len(temp_values)
-                for i in range(sample_count % len(temp_values)):
-                    counts[i] += 1
-                for temp_value, count in zip(temp_values, counts):
-                    if count <= 0:
-                        continue
-                    batch = self.sample_batch(state_vec[None, :], caps[None, :], candidates=count, temperature=temp_value)
-                    actions.extend([batch.actions[0, i] for i in range(count)])
-            else:
-                batch = self.sample_batch(state_vec[None, :], caps[None, :], candidates=sample_count, temperature=temperature)
-                actions.extend([batch.actions[0, i] for i in range(sample_count)])
-        repaired = np.stack([self.env.project_action(action, state, max_passes=2) for action in actions[:candidates]])
+        temperatures = self._eval_temperature_schedule(candidates, temperature, greedy_count)
+        actions = self._policy_candidates_fast(state_vec, caps, temperatures, greedy_count=greedy_count)
+        repaired = np.stack([self.env.project_action(action, state, max_passes=2) for action in actions])
         return repaired
 
     def select_policy_candidate(self, state: SimState, candidates: int, temperature: float = 0.5) -> AutoregPolicyEval:

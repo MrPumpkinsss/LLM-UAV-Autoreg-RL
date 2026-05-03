@@ -2,7 +2,7 @@
 
 - Train dir: `results/autoreg_rl_teacher`
 - Benchmark dir: `results/benchmark_autoreg_gpu_k64`
-- Autoreg-RL margin mean: `-0.01253196`
+- Autoreg-RL margin mean: `-0.01256090`
 - Autoreg-RL win/tie rate: `0.3906`
 
 ## Generated Files
