@@ -1,0 +1,18 @@
+{
+  "model_id": "Qwen/Qwen3-0.6B",
+  "num_layers": 28,
+  "hidden_size": 1024,
+  "intermediate_size": 3072,
+  "num_attention_heads": 16,
+  "num_key_value_heads": 8,
+  "dtype": "bfloat16",
+  "total_params": 596049920,
+  "layer_param_mean": 15730944.0,
+  "layer_param_min": 15730944,
+  "layer_param_max": 15730944,
+  "forward_latency_ms_mean": 29.51613998739049,
+  "ppl_ref": 30.824672354565333,
+  "fitted_gamma": 10.899647591669423,
+  "surrogate_fit_r2": 0.9973662721642459,
+  "surrogate_fit_rmse_log_ratio": 0.01927717649764542
+}

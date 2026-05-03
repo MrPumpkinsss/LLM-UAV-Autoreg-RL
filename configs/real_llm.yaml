@@ -1,0 +1,26 @@
+model_id: Qwen/Qwen3-0.6B
+cache_dir: null
+device: cuda
+dtype: bfloat16
+max_length: 128
+stride: 128
+num_texts: 128
+batch_size: 1
+drop_rates: [0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]
+corruption_trials: 6
+seed: 123
+output_dir: results/qwen3_0p6b_real_profile
+dataset:
+  name: wikitext
+  config: wikitext-2-raw-v1
+  split: validation
+  min_chars: 120
+texts:
+  - "The unmanned aerial vehicles collaborate to execute language model inference over wireless links while preserving mission latency."
+  - "Reliable edge intelligence requires careful placement of neural network layers across heterogeneous devices."
+  - "Packet loss in a wireless channel can increase retransmission delay and may degrade model outputs if corrupted activations are not recovered."
+  - "A reinforcement learning policy can generate candidate model partitions and select the best feasible deployment under resource constraints."
+  - "The quick brown fox jumps over the lazy dog while the edge server measures perplexity and latency."
+  - "In distributed inference, intermediate activations must be transmitted between devices when adjacent layers are placed on different nodes."
+  - "Energy, memory, and bandwidth constraints strongly affect the feasibility of collaborative large language model serving."
+  - "The system uses a surrogate reward model to approximate the impact of channel impairments on language modeling quality."
