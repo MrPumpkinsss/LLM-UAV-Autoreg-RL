@@ -14,7 +14,15 @@ from .baselines import evaluate_full_benchmark
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
 from .llm_profile import build_qwen3_0p6b_profile
-from .train_dros import set_seed
+
+
+def set_seed(seed: int) -> None:
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
 
 
 def write_csv(path: Path, rows: list[dict]) -> None:
@@ -85,10 +93,14 @@ def main() -> None:
     parser.add_argument("--eval-candidates", type=int, default=None)
     parser.add_argument("--teacher-states", type=int, default=None)
     parser.add_argument("--teacher-updates", type=int, default=None)
+    parser.add_argument("--num-uavs", type=int, default=5)
+    parser.add_argument("--num-layers", type=int, default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    cfg["uav"]["num_uavs"] = 5
+    cfg["uav"]["num_uavs"] = args.num_uavs
+    if args.num_layers is not None:
+        cfg["profile"]["num_layers"] = args.num_layers
     ar_cfg = cfg.setdefault("ar_rl", {})
     if args.episodes is not None:
         ar_cfg["episodes"] = args.episodes
@@ -280,4 +292,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

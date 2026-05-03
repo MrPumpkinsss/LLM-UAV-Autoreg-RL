@@ -5,6 +5,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+.venv_cuda/
 
 # Do not publish paper source/copies.
 Robust_Inference2025-main.*
@@ -24,7 +25,19 @@ results/**
 !results/benchmark_autoreg_1024_3seed/
 !results/benchmark_autoreg_1024_3seed/benchmark_margin.json
 !results/benchmark_autoreg_1024_3seed/benchmark_report.md
+!results/benchmark_autoreg_1024_3seed/benchmark_rows.csv
 !results/benchmark_autoreg_1024_3seed/benchmark_summary.csv
+!results/benchmark_autoreg_gpu_full/
+!results/benchmark_autoreg_gpu_full/benchmark_margin.json
+!results/benchmark_autoreg_gpu_full/benchmark_report.md
+!results/benchmark_autoreg_gpu_full/benchmark_summary.csv
+!results/exact_optimal_L7_N5_learned/
+!results/exact_optimal_L7_N5_learned/exact_meta.json
+!results/exact_optimal_L7_N5_learned/exact_report.md
+!results/exact_optimal_L7_N5_learned/exact_summary.csv
+!results/visuals_autoreg/
+!results/visuals_autoreg/*.png
+!results/visuals_autoreg/visual_summary.md
 !results/qwen3_0p6b_real_profile/
 !results/qwen3_0p6b_real_profile/layer_params.npy
 !results/qwen3_0p6b_real_profile/ppl_corruption_curve.json
