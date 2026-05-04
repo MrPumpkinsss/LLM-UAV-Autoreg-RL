@@ -1,0 +1,38 @@
+{
+  "states": 320,
+  "seeds": "91,92,93,94,95",
+  "states_per_seed": 64,
+  "profile": "Qwen3-0.6B real profile",
+  "num_uavs": 5,
+  "num_layers": 28,
+  "policy": "results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt",
+  "fairness": "RL rows use learned-policy candidates only; no baseline heuristic actions are inserted into the RL candidate pool.",
+  "k16": {
+    "states": 320,
+    "autoreg_rl_pure_margin_mean": -0.13527882240578665,
+    "autoreg_rl_pure_margin_min": -13.859415234057522,
+    "autoreg_rl_pure_win_or_tie_rate": 0.365625,
+    "autoreg_rl_pure_strict_win_rate": 0.0625
+  },
+  "k64": {
+    "states": 320,
+    "autoreg_rl_pure_margin_mean": -0.041583867224472576,
+    "autoreg_rl_pure_margin_min": -7.88135706074691,
+    "autoreg_rl_pure_win_or_tie_rate": 0.578125,
+    "autoreg_rl_pure_strict_win_rate": 0.10625
+  },
+  "k128": {
+    "states": 320,
+    "autoreg_rl_pure_margin_mean": -0.006942864598138363,
+    "autoreg_rl_pure_margin_min": -1.1277970893492646,
+    "autoreg_rl_pure_win_or_tie_rate": 0.675,
+    "autoreg_rl_pure_strict_win_rate": 0.134375
+  },
+  "k256": {
+    "states": 320,
+    "autoreg_rl_pure_margin_mean": -0.0006324182784741672,
+    "autoreg_rl_pure_margin_min": -1.065108705730899,
+    "autoreg_rl_pure_win_or_tie_rate": 0.778125,
+    "autoreg_rl_pure_strict_win_rate": 0.15
+  }
+}

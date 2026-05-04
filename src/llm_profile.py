@@ -89,7 +89,23 @@ def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.rando
     dtype_bytes = int(profile_cfg.get("dtype_bytes", 2))
     mem_bytes = layer_params * dtype_bytes
     activation_bytes = base.activation_bytes.copy()
-    importance = activation_bytes / max(float(np.sum(activation_bytes)), 1.0)
+    layer_gamma_path = real_path / "layer_ppl_gamma.npy"
+    if layer_gamma_path.exists():
+        layer_gamma = np.load(layer_gamma_path).astype(np.float64)
+        expected = int(summary["num_layers"]) - 1
+        if layer_gamma.shape != (expected,):
+            raise ValueError(f"{layer_gamma_path} has shape {layer_gamma.shape}, expected ({expected},)")
+        layer_gamma = np.maximum(layer_gamma, 0.0)
+        gamma_sum = float(np.sum(layer_gamma))
+        if gamma_sum > 1e-12:
+            importance = layer_gamma / gamma_sum
+            ppl_gamma = gamma_sum
+        else:
+            importance = activation_bytes / max(float(np.sum(activation_bytes)), 1.0)
+            ppl_gamma = float(summary["fitted_gamma"])
+    else:
+        importance = activation_bytes / max(float(np.sum(activation_bytes)), 1.0)
+        ppl_gamma = float(summary["fitted_gamma"])
     cycles_scale = mem_bytes / max(float(np.mean(mem_bytes)), 1.0)
     compute_cycles = float(np.mean(base.compute_cycles)) * cycles_scale
 
@@ -101,5 +117,5 @@ def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.rando
         activation_bytes=activation_bytes.astype(np.float64),
         importance=importance.astype(np.float64),
         ppl_ref=float(summary["ppl_ref"]),
-        ppl_gamma=float(summary["fitted_gamma"]),
+        ppl_gamma=ppl_gamma,
     )

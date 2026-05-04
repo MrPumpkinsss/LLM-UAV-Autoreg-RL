@@ -23,6 +23,7 @@ def main() -> None:
     parser.add_argument("--k64-dir", default="results/benchmark_real_profile_k64_blocks_policy_beam_5seed")
     parser.add_argument("--k128-dir", default="results/benchmark_real_profile_k128_blocks_fast_policy_beam_5seed")
     parser.add_argument("--k256-dir", default="results/benchmark_real_profile_k256_blocks_fast_policy_beam_5seed")
+    parser.add_argument("--policy", default="results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt")
     parser.add_argument("--out-dir", default="results/benchmark_real_profile_k_sweep_fast_5seed")
     args = parser.parse_args()
 
@@ -40,6 +41,8 @@ def main() -> None:
 
     baseline_methods = [
         "hybrid_heuristic",
+        "block_lns_strong",
+        "block_beam_strong",
         "beam_search",
         "simulated_annealing",
         "local_search",
@@ -93,7 +96,7 @@ def main() -> None:
         "profile": "Qwen3-0.6B real profile",
         "num_uavs": 5,
         "num_layers": 28,
-        "policy": "results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt",
+        "policy": args.policy,
         "fairness": "RL rows use learned-policy candidates only; no baseline heuristic actions are inserted into the RL candidate pool.",
         "k16": margins[16],
         "k64": margins[64],

@@ -104,21 +104,35 @@ def compute_ppl(
     texts: list[str],
     device: torch.device,
     max_length: int,
+    batch_size: int = 1,
 ) -> float:
-    losses = []
-    token_counts = []
-    for text in texts:
-        encoded = tokenizer(text, return_tensors="pt", truncation=True, max_length=max_length)
+    total_nll = 0.0
+    total_tokens = 0
+    batch_size = max(1, int(batch_size))
+    for start in range(0, len(texts), batch_size):
+        batch_texts = texts[start : start + batch_size]
+        encoded = tokenizer(
+            batch_texts,
+            return_tensors="pt",
+            truncation=True,
+            padding=True,
+            max_length=max_length,
+            return_attention_mask=True,
+        )
         input_ids = encoded["input_ids"].to(device)
+        attention_mask = encoded["attention_mask"].to(device)
         if input_ids.shape[1] < 2:
             continue
-        out = model(input_ids=input_ids, labels=input_ids)
-        losses.append(float(out.loss.detach().cpu()))
-        token_counts.append(int(input_ids.numel()))
-    if not losses:
+        logits = model(input_ids=input_ids).logits[:, :-1, :].float()
+        labels = input_ids[:, 1:]
+        shifted_mask = attention_mask[:, 1:].float()
+        log_probs = torch.log_softmax(logits, dim=-1)
+        token_log_probs = log_probs.gather(-1, labels.unsqueeze(-1)).squeeze(-1)
+        total_nll += float(((-token_log_probs) * shifted_mask).sum().detach().cpu())
+        total_tokens += int(shifted_mask.sum().detach().cpu())
+    if total_tokens <= 0:
         return float("nan")
-    avg_loss = float(np.average(losses, weights=token_counts))
-    return float(math.exp(avg_loss))
+    return float(math.exp(total_nll / total_tokens))
 
 
 def attach_embedding_corruption(model: torch.nn.Module, drop_rate: float, seed: int):
@@ -205,7 +219,7 @@ def main() -> None:
     texts = default_texts(cfg)
 
     latency_ms = measure_forward_latency(model, tokenizer, texts[0], device, int(cfg["max_length"]))
-    ppl_ref = compute_ppl(model, tokenizer, texts, device, int(cfg["max_length"]))
+    ppl_ref = compute_ppl(model, tokenizer, texts, device, int(cfg["max_length"]), int(cfg["batch_size"]))
 
     drop_rates = [float(x) for x in cfg["drop_rates"]]
     rows = []
@@ -214,7 +228,7 @@ def main() -> None:
         for trial in range(int(cfg["corruption_trials"])):
             handle = attach_embedding_corruption(model, drop, int(cfg["seed"]) + trial + int(drop * 10000))
             try:
-                ppls.append(compute_ppl(model, tokenizer, texts, device, int(cfg["max_length"])))
+                ppls.append(compute_ppl(model, tokenizer, texts, device, int(cfg["max_length"]), int(cfg["batch_size"])))
             finally:
                 handle.remove()
         rows.append({"drop_rate": drop, "ppl_mean": float(np.mean(ppls)), "ppl_std": float(np.std(ppls)), "trials": ppls})

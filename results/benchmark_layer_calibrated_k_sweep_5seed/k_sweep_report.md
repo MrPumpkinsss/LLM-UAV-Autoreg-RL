@@ -1,0 +1,33 @@
+# Real-Profile k Sweep Benchmark
+
+Fairness: all `autoreg_rl_pure_k*` rows use only learned-policy candidates plus generic feasibility projection. The strong heuristic actions are benchmark baselines only, not RL candidate-pool entries.
+
+States: `320` (`91,92,93,94,95` x `64`)
+Profile: `Qwen3-0.6B real profile`
+Policy: `results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt`
+
+| method | reward | feasible | latency | PPL | runtime_s | margin | win/tie |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| baseline:hybrid_heuristic | -0.499117 +/- 0.787499 | 1.0000 | 2.6578 | 48.7862 | 0.01313 |  |  |
+| baseline:block_lns_strong | -0.499191 +/- 0.787523 | 1.0000 | 2.6519 | 48.8368 | 0.07037 |  |  |
+| autoreg_rl_pure_k256 | -0.499749 +/- 0.803151 | 1.0000 | 2.6190 | 49.1337 | 0.04297 | -0.000632 | 0.7781 |
+| autoreg_rl_pure_k128 | -0.506060 +/- 0.820841 | 1.0000 | 2.6338 | 49.5054 | 0.03698 | -0.006943 | 0.6750 |
+| autoreg_rl_pure_k64 | -0.540701 +/- 0.998598 | 1.0000 | 2.6465 | 52.0763 | 0.03312 | -0.041584 | 0.5781 |
+| baseline:block_beam_strong | -0.584792 +/- 1.109608 | 1.0000 | 2.7353 | 54.7887 | 0.32396 |  |  |
+| autoreg_rl_pure_k16 | -0.634396 +/- 1.575555 | 1.0000 | 2.6661 | 59.1424 | 0.02870 | -0.135279 | 0.3656 |
+| baseline:simulated_annealing | -13.754920 +/- 31.010895 | 0.8906 | 18.0197 | 137163758443948873408680296448.0000 | 0.00740 |  |  |
+| baseline:local_search | -13.771714 +/- 31.006918 | 0.8906 | 18.0157 | 137163758443948873408680296448.0000 | 0.01585 |  |  |
+| baseline:beam_search | -17.326284 +/- 290.588877 | 1.0000 | 2.8847 | 1343.2341 | 0.03190 |  |  |
+| baseline:random | -100.000000 +/- 0.000000 | 0.0000 | 110.9442 | 509227055769388417515918307885056.0000 | 0.02494 |  |  |
+| baseline:pdp_aware_greedy | -1076.841052 +/- 10055.860361 | 0.9969 | 3.4499 | 1338960.5587 | 0.00035 |  |  |
+| baseline:block_balanced | -13061686.697982 +/- 112969291.344464 | 0.8281 | 14.6489 | 4015238351651.2998 | 0.00008 |  |  |
+| baseline:latency_greedy | -127873524.298005 +/- 952102671.473644 | 0.9250 | 9.7239 | 37471905765.3050 | 0.00007 |  |  |
+
+## RL Candidate Budget
+
+| k | mean margin | min margin | win/tie | strict win | runtime_s |
+|---:|---:|---:|---:|---:|---:|
+| 16 | -0.13527882 | -13.85941523 | 0.3656 | 0.0625 | 0.02870 |
+| 64 | -0.04158387 | -7.88135706 | 0.5781 | 0.1062 | 0.03312 |
+| 128 | -0.00694286 | -1.12779709 | 0.6750 | 0.1344 | 0.03698 |
+| 256 | -0.00063242 | -1.06510871 | 0.7781 | 0.1500 | 0.04297 |

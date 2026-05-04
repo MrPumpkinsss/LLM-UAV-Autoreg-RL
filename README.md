@@ -2,55 +2,43 @@
 
 Clean experiment repository for UAV-enabled distributed LLM submodel deployment.
 
-The main result is a teacher-warm-start autoregressive RL policy for Qwen3-0.6B profile-based simulation. At inference time, `autoreg_rl_pure` samples deployment candidates only from the learned policy and applies generic feasibility projection. It does not insert beam-search, local-search, simulated-annealing, or greedy heuristic actions into the RL candidate pool.
+The current method is a pure autoregressive RL policy for assigning Qwen3-0.6B layers to `N=5` UAVs. At inference time, `autoreg_rl_pure` samples candidates only from the learned policy and applies generic feasibility projection. Strong heuristics are used only as benchmark baselines; their actions are not inserted into the RL candidate pool.
 
 ## Current Result
 
-Latest target benchmark: `5 seeds x 64 states = 320 states`, `N=5` UAVs, `28` LLM layers, real Qwen3-0.6B profile, evaluated on CUDA.
+Latest benchmark: `5 seeds x 64 states = 320 states`, `28` LLM layers, real Qwen3-0.6B layer-calibrated profile, CUDA inference.
 
-Reward is the negative weighted cost for feasible deployments:
+Checkpoint: `results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt`
+
+Main benchmark: `results/benchmark_layer_calibrated_k256_stronger_5seed`
+
+Reward for feasible deployments:
 
 ```text
 reward = -cost
 cost = alpha * ((PPL_hat - PPL_ref) / PPL_ref) + beta * (latency_s / latency_ref_s)
 ```
 
-Hard-infeasible deployments receive `reward = -100.0`. The calibrated config uses `alpha = 0.4`, `beta = 0.6`, `latency_ref_s = 6.0`, and `PPL_ref = 30.824672`.
+Hard-infeasible deployments receive `reward = -100.0`. The calibrated config uses `alpha = 0.4`, `beta = 0.6`, `latency_ref_s = 6.0`, and `PPL_ref = 30.811979`.
 
-The primary fair comparison uses pure RL candidates and stronger heuristic baselines. All RL rows use only learned-policy candidates with policy-beam decoding and generic feasibility projection. No strong heuristic actions are inserted into the RL pool. The recommended operating point is `k=128` with `projection_mode=blocks_fast`; `k=256` is the higher-win setting. `blocks_fast` skips candidate-level local repair, but final feasibility is still checked by the environment evaluator.
+## Surrogate Principle
 
-Checkpoint: `results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt`
-Benchmark: `results/benchmark_real_profile_k256_blocks_fast_stronger_5seed`
+The paper defines PPL as token-level perplexity:
 
-| method | reward | feasible | latency | PPL | runtime/state |
-|---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure, k=256 | -0.250289 +/- 0.064238 | 1.0000 | 2.4441 | 31.2773 | 0.03258s |
-| hybrid_heuristic | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.01193s |
-| block_lns_strong | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.06096s |
-| block_beam_strong | -0.257286 +/- 0.068740 | 1.0000 | 2.5078 | 31.3262 | 0.30348s |
-| beam_search | -0.270223 +/- 0.088483 | 1.0000 | 2.6111 | 31.5269 | 0.02960s |
+```text
+PPL = exp(-1/M * sum_k log P_LLM(w_k | w_1, ..., w_{k-1}))
+```
 
-Against this stronger baseline set, `k=128` has mean margin `0.00029552` and win/tie `81.5625%`; `k=256` has mean margin `0.00088429` and win/tie `89.375%`. The earlier k-sweep without block LNS is still stored in `results/benchmark_real_profile_k_sweep_fast_5seed/k_sweep_report.md`.
+This repository now computes real Qwen3-0.6B PPL with that explicit formula. The simulator then uses a real-LLM-calibrated analytic surrogate:
 
-## Visuals
+```text
+PPL_hat = PPL_ref * exp(sum_l gamma_l * residual_l)
+residual_l = p_l^(r + 1)
+```
 
-![Training curves](results/visuals_autoreg/training_curves.png)
+Here `p_l` is the packet drop probability on the wireless boundary after layer `l`, and `r` is the retransmission count. `gamma_l` is not hand-written: it is fitted by loading Qwen3-0.6B, corrupting each boundary layer's hidden states at controlled drop rates, and measuring the resulting real PPL. The fitted layer sensitivities are stored in `results/qwen3_0p6b_real_profile/layer_ppl_gamma.npy`.
 
-![Benchmark reward comparison](results/visuals_autoreg/benchmark_reward_bar.png)
-
-![Benchmark feasibility comparison](results/visuals_autoreg/benchmark_feasibility_bar.png)
-
-![RL margin histogram](results/visuals_autoreg/margin_histogram.png)
-
-![RL margin by seed](results/visuals_autoreg/margin_by_seed.png)
-
-![Autoreg-RL vs best heuristic](results/visuals_autoreg/autoreg_vs_heuristic_scatter.png)
-
-## Real LLM Benchmark
-
-The real-model check loads `Qwen/Qwen3-0.6B` with `bfloat16` on CUDA and measures the profile used by the simulator. The full baseline comparison then uses the measured layer parameter counts, reference PPL, and fitted corruption curve in the LLM-UAV environment.
-
-Profile results are stored in `results/qwen3_0p6b_real_profile`. The strongest real-profile benchmarks are stored in `results/benchmark_real_profile_k128_blocks_fast_stronger_5seed`, `results/benchmark_real_profile_k256_blocks_fast_stronger_5seed`, and the earlier k-sweep in `results/benchmark_real_profile_k_sweep_fast_5seed`.
+Profile calibration:
 
 | item | value |
 |---|---:|
@@ -58,117 +46,128 @@ Profile results are stored in `results/qwen3_0p6b_real_profile`. The strongest r
 | parameters | 596,049,920 |
 | layers | 28 |
 | hidden size | 1024 |
-| layer params mean | 15,730,944 |
 | dtype | bfloat16 |
-| forward latency mean | 38.422 ms |
-| reference PPL | 30.824672 |
-| fitted gamma | 10.899648 |
-| surrogate fit R2 | 0.997366 |
-| log-ratio RMSE | 0.019277 |
+| reference PPL | 30.811979 |
+| embedding-curve gamma | 10.898646 |
+| embedding-curve R2 | 0.997363 |
+| layer gamma sum | 293.322997 |
+| layer mean R2 | 0.982527 |
+| layer RMSE log-ratio | 0.018681 |
 
-Real-profile baseline comparison, `5 seeds x 64 states`, `k=256`, `max_blocks=5`, `projection_mode=blocks_fast`, `candidate_mode=beam`, with `block_beam_strong` and `block_lns_strong` enabled:
+## Benchmark
 
-| method | reward | feasible | latency | PPL | runtime/state |
+The strongest baseline set includes `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`. Runtime is measured separately for every method.
+
+| method | reward | feasible | latency | PPL | runtime_s | margin | win/tie |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| hybrid_heuristic | -0.499117 +/- 0.787499 | 1.0000 | 2.6578 | 48.7862 | 0.01313 |  |  |
+| block_lns_strong | -0.499191 +/- 0.787523 | 1.0000 | 2.6519 | 48.8368 | 0.07037 |  |  |
+| autoreg_rl_pure_k256 | -0.499749 +/- 0.803151 | 1.0000 | 2.6190 | 49.1337 | 0.04297 | -0.000632 | 0.7781 |
+| autoreg_rl_pure_k128 | -0.506060 +/- 0.820841 | 1.0000 | 2.6338 | 49.5054 | 0.03698 | -0.006943 | 0.6750 |
+| autoreg_rl_pure_k64 | -0.540701 +/- 0.998598 | 1.0000 | 2.6465 | 52.0763 | 0.03312 | -0.041584 | 0.5781 |
+| block_beam_strong | -0.584792 +/- 1.109608 | 1.0000 | 2.7353 | 54.7887 | 0.32396 |  |  |
+| autoreg_rl_pure_k16 | -0.634396 +/- 1.575555 | 1.0000 | 2.6661 | 59.1424 | 0.02870 | -0.135279 | 0.3656 |
+| simulated_annealing | -13.754920 +/- 31.010895 | 0.8906 | 18.0197 | 1.3716e29 | 0.00740 |  |  |
+| local_search | -13.771714 +/- 31.006918 | 0.8906 | 18.0157 | 1.3716e29 | 0.01585 |  |  |
+| beam_search | -17.326284 +/- 290.588877 | 1.0000 | 2.8847 | 1343.2341 | 0.03190 |  |  |
+| random | -100.000000 +/- 0.000000 | 0.0000 | 110.9442 | 5.0923e32 | 0.02494 |  |  |
+| pdp_aware_greedy | -1076.841052 +/- 10055.860361 | 0.9969 | 3.4499 | 1338960.5587 | 0.00035 |  |  |
+| block_balanced | -13061686.697982 +/- 112969291.344464 | 0.8281 | 14.6489 | 4.0152e12 | 0.00008 |  |  |
+| latency_greedy | -127873524.298005 +/- 952102671.473644 | 0.9250 | 9.7239 | 3.7472e10 | 0.00007 |  |  |
+
+Candidate-budget sweep:
+
+| k | mean margin | min margin | win/tie | strict win | runtime_s |
+|---:|---:|---:|---:|---:|---:|
+| 16 | -0.13527882 | -13.85941523 | 0.3656 | 0.0625 | 0.02870 |
+| 64 | -0.04158387 | -7.88135706 | 0.5781 | 0.1062 | 0.03312 |
+| 128 | -0.00694286 | -1.12779709 | 0.6750 | 0.1344 | 0.03698 |
+| 256 | -0.00063242 | -1.06510871 | 0.7781 | 0.1500 | 0.04297 |
+
+Under the stricter layer-wise PPL surrogate, `k=256` is the recommended operating point. It is effectively tied with the best strong heuristic on mean reward while using only learned-policy candidates, and it has lower mean latency than the top heuristic.
+
+## Real LLM Validation
+
+Action-level validation loads Qwen3-0.6B and computes real PPL for actual actions selected by RL and strong heuristics. The validation is stored in `results/real_action_ppl_validation_layer_calibrated_retrained`.
+
+| scope | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
+|---|---:|---:|---:|---:|---:|---:|
+| non-random competitive | 64 | 0.023323 | 0.216265 | 0.052984 | 0.996233 | 0.973764 |
+
+Per method:
+
+| method | rows | mean rel error | max rel error | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.250289 +/- 0.064238 | 1.0000 | 2.4441 | 31.2773 | 0.03258s |
-| hybrid_heuristic | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.01193s |
-| block_lns_strong | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.06096s |
-| block_beam_strong | -0.257286 +/- 0.068740 | 1.0000 | 2.5078 | 31.3262 | 0.30348s |
-| beam_search | -0.270223 +/- 0.088483 | 1.0000 | 2.6111 | 31.5269 | 0.02960s |
-| simulated_annealing | -0.353110 +/- 0.153723 | 1.0000 | 3.2136 | 33.2715 | 0.00623s |
-| local_search | -0.353971 +/- 0.155190 | 1.0000 | 3.2201 | 33.2875 | 0.01396s |
-| pdp_aware_greedy | -0.686098 +/- 5.572170 | 0.9969 | 3.4235 | 33.6823 | 0.00032s |
+| autoreg_rl_pure | 16 | 0.024563 | 0.113034 | 0.998831 | 0.973529 |
+| block_beam_strong | 16 | 0.026895 | 0.216265 | 0.997296 | 0.970588 |
+| block_lns_strong | 16 | 0.024521 | 0.199763 | 0.997366 | 0.976471 |
+| hybrid_heuristic | 16 | 0.017314 | 0.134010 | 0.998837 | 0.976471 |
 
-Runtime is measured per method, not averaged across the heuristic suite. Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profile benchmark: `0.00088429`. Win/tie rate: `0.8938`.
+Random high-transition actions are kept in the report as out-of-distribution stress cases. They can exceed the calibrated drop range and produce very large exponential extrapolation errors, so the main validation metric is the non-random competitive subset.
 
-### Real-Profile k=16 Block Policy
+## Visuals
 
-The `k=16` target run uses the real Qwen3-0.6B profile, reward-weighted teacher warm start, a pure RL block projection decoder, and a pure policy beam candidate generator. It overgenerates policy-beam candidates by `4x`, deduplicates them, then keeps the final `k=16`. Inference still uses only learned-policy candidates; no baseline beam-search, local-search, simulated-annealing, or greedy heuristic actions are inserted into the RL candidate pool.
+![Training curves](results/visuals_layer_calibrated/training_curves.png)
 
-Checkpoint: `results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt`
-Benchmark: `results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed`
+![Benchmark reward comparison](results/visuals_layer_calibrated/benchmark_reward_bar.png)
 
-Real-profile baseline comparison, `5 seeds x 64 states`, `k=16`, `max_blocks=5`, `candidate_mode=beam`, `candidate_overgenerate=4`:
+![Benchmark feasibility comparison](results/visuals_layer_calibrated/benchmark_feasibility_bar.png)
 
-| method | reward | feasible | latency | PPL | runtime/state |
-|---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.263797 +/- 0.074131 | 1.0000 | 2.5672 | 31.3703 | 0.02796s |
-| hybrid_heuristic | -0.273453 +/- 0.086901 | 1.0000 | 2.6411 | 31.5446 | 0.01104s |
-| beam_search | -0.278149 +/- 0.094707 | 1.0000 | 2.6786 | 31.6178 | 0.01104s |
-| simulated_annealing | -0.351507 +/- 0.146873 | 1.0000 | 3.2171 | 33.1205 | 0.01104s |
-| local_search | -0.352602 +/- 0.148446 | 1.0000 | 3.2242 | 33.1506 | 0.01104s |
-| pdp_aware_greedy | -0.369239 +/- 0.178122 | 1.0000 | 3.3570 | 33.4093 | 0.01104s |
+![RL margin histogram](results/visuals_layer_calibrated/margin_histogram.png)
 
-Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `0.00965595`. Win/tie rate: `0.6687`.
+![RL margin by seed](results/visuals_layer_calibrated/margin_by_seed.png)
 
-Reproduce it with:
+![Autoreg-RL vs best heuristic](results/visuals_layer_calibrated/autoreg_vs_heuristic_scatter.png)
+
+![Surrogate PPL fit](results/surrogate_benchmark/surrogate_ppl_fit.png)
+
+## Surrogate Benchmark
+
+The surrogate benchmark is stored in `results/surrogate_benchmark`. It validates the exponential PPL model against measured Qwen3-0.6B PPL under controlled corruption before the simulator benchmark and real action-level validation.
+
+| metric | value |
+|---|---:|
+| PPL_ref | 30.811979 |
+| gamma | 10.898646 |
+| layer gamma sum | 293.322997 |
+| layer mean R2 | 0.982527 |
+| R2 log-ratio | 0.997363 |
+| RMSE log-ratio | 0.019289 |
+| MAE PPL | 0.797233 |
+| mean relative PPL error | 0.015285 |
+| max relative PPL error | 0.030760 |
+
+## Reproduce
+
+Train the current policy:
 
 ```powershell
-python -m src.benchmark_real_profile `
+python -m src.train_autoreg_rl `
   --config configs/qwen3_calibrated.yaml `
   --real-dir results/qwen3_0p6b_real_profile `
-  --policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
-  --states 64 `
-  --seeds "91,92,93,94,95" `
-  --beam-width 32 `
-  --anneal-steps 128 `
-  --autoreg-candidates 16 `
-  --autoreg-refine-steps 0 `
+  --out results/autoreg_rl_layer_calibrated_k16_blocks `
+  --device cuda `
+  --init-policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
+  --episodes 1000 `
+  --batch-states 64 `
+  --candidates 16 `
+  --eval-candidates 64 `
+  --validation-states 128 `
+  --teacher-states 0 `
+  --teacher-updates 0 `
   --projection-mode blocks `
   --max-blocks 5 `
   --candidate-mode beam `
-  --beam-temperature 1.5 `
-  --candidate-overgenerate 4 `
-  --out results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed `
-  --device cuda
+  --beam-temperature 1.0
 ```
 
-Reproduce the relaxed `k=64` run with:
-
-```powershell
-python -m src.real_llm_profile --config configs/real_llm.yaml
-python -m src.benchmark_real_profile `
-  --config configs/qwen3_calibrated.yaml `
-  --real-dir results/qwen3_0p6b_real_profile `
-  --policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
-  --states 64 `
-  --seeds "91,92,93,94,95" `
-  --beam-width 32 `
-  --anneal-steps 128 `
-  --autoreg-candidates 64 `
-  --autoreg-refine-steps 0 `
-  --projection-mode blocks `
-  --max-blocks 5 `
-  --candidate-mode beam `
-  --beam-temperature 1.0 `
-  --out results/benchmark_real_profile_k64_blocks_policy_beam_5seed `
-  --device cuda
-```
-
-Reproduce the stronger-baseline `k=128` and `k=256` runs with:
+Run the recommended `k=256` benchmark:
 
 ```powershell
 python -m src.benchmark_real_profile `
   --config configs/qwen3_calibrated.yaml `
   --real-dir results/qwen3_0p6b_real_profile `
-  --policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
-  --states 64 `
-  --seeds "91,92,93,94,95" `
-  --beam-width 32 `
-  --anneal-steps 128 `
-  --autoreg-candidates 128 `
-  --autoreg-refine-steps 0 `
-  --projection-mode blocks_fast `
-  --max-blocks 5 `
-  --candidate-mode beam `
-  --beam-temperature 1.0 `
-  --out results/benchmark_real_profile_k128_blocks_fast_stronger_5seed `
-  --device cuda
-
-python -m src.benchmark_real_profile `
-  --config configs/qwen3_calibrated.yaml `
-  --real-dir results/qwen3_0p6b_real_profile `
-  --policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
+  --policy results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt `
   --states 64 `
   --seeds "91,92,93,94,95" `
   --beam-width 32 `
@@ -179,42 +178,48 @@ python -m src.benchmark_real_profile `
   --max-blocks 5 `
   --candidate-mode beam `
   --beam-temperature 1.0 `
-  --out results/benchmark_real_profile_k256_blocks_fast_stronger_5seed `
+  --out results/benchmark_layer_calibrated_k256_stronger_5seed `
   --device cuda
 ```
 
-## Surrogate Benchmark
+Run real action-level PPL validation:
 
-The surrogate benchmark is placed last because it validates the PPL model used by both the surrogate and real-profile deployment experiments. It compares the exponential surrogate `PPL_hat = PPL_ref * exp(gamma * damage)` against measured Qwen3-0.6B PPL under controlled embedding corruption.
+```powershell
+python -m src.benchmark_real_action_ppl `
+  --config configs/qwen3_calibrated.yaml `
+  --llm-config configs/real_llm.yaml `
+  --real-dir results/qwen3_0p6b_real_profile `
+  --policy results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt `
+  --states 16 `
+  --repeats 2 `
+  --batch-size 4 `
+  --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong,random" `
+  --autoreg-candidates 256 `
+  --beam-width 32 `
+  --anneal-steps 128 `
+  --out results/real_action_ppl_validation_layer_calibrated_retrained
+```
 
-Results are stored in `results/surrogate_benchmark`.
+Regenerate visuals:
 
-![Surrogate PPL fit](results/surrogate_benchmark/surrogate_ppl_fit.png)
-
-| metric | value |
-|---|---:|
-| PPL_ref | 30.824672 |
-| gamma | 10.899648 |
-| R2 log-ratio | 0.997366 |
-| RMSE log-ratio | 0.019277 |
-| MAE PPL | 0.796831 |
-| Max abs PPL error | 1.587679 |
-| Mean relative PPL error | 0.015270 |
-| Max relative PPL error | 0.030786 |
+```powershell
+python -m src.make_visuals `
+  --train-dir results/autoreg_rl_layer_calibrated_k16_blocks `
+  --benchmark-dir results/benchmark_layer_calibrated_k256_stronger_5seed `
+  --out results/visuals_layer_calibrated
+```
 
 ## Repository Layout
 
 - `src/autoreg_rl_agent.py`: masked autoregressive policy for layer-to-UAV assignment.
-- `src/train_autoreg_rl.py`: teacher warm-start plus RL/self-imitation training.
-- `src/benchmark_autoreg.py`: fair benchmark against strong heuristics.
-- `src/exact_optimal_compare.py`: exact exhaustive comparison on reduced 5-UAV instances.
-- `src/baselines.py`: greedy, local search, beam search, simulated annealing, and hybrid heuristic.
-- `src/env.py`: LLM-UAV simulator, constraints, reward, KKT bandwidth allocation.
-- `src/real_llm_profile.py`: Qwen3-0.6B profile/PPL calibration script.
+- `src/train_autoreg_rl.py`: RL/self-imitation training.
+- `src/baselines.py`: greedy, local search, beam search, simulated annealing, block LNS, and hybrid heuristics.
+- `src/env.py`: LLM-UAV simulator, constraints, reward, and KKT bandwidth allocation.
+- `src/real_llm_profile.py`: Qwen3-0.6B profile and explicit paper-formula PPL calibration.
+- `src/real_llm_layer_calibration.py`: layer-wise real PPL sensitivity calibration.
+- `src/benchmark_real_profile.py`: simulation benchmark with strong baselines.
+- `src/benchmark_real_action_ppl.py`: real action-level Qwen PPL validation.
 - `configs/qwen3_calibrated.yaml`: calibrated simulation config.
-- `results/autoreg_rl_teacher/autoreg_policy_best.pt`: best policy checkpoint.
-- `results/benchmark_autoreg_gpu_k64`: latest full CUDA benchmark with `k=64`.
-- `results/visuals_autoreg`: generated figures embedded above.
 
 ## Setup
 
@@ -224,64 +229,3 @@ conda activate LLM-UAV
 pip install numpy pandas pyyaml matplotlib transformers datasets
 pip install torch --index-url https://download.pytorch.org/whl/cu128
 ```
-
-Use the existing local environment if it already exists:
-
-```powershell
-conda activate LLM-UAV
-python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
-```
-
-## Reproduce Benchmark
-
-```powershell
-python -m src.benchmark_autoreg `
-  --config configs/qwen3_calibrated.yaml `
-  --policy results/autoreg_rl_teacher/autoreg_policy_best.pt `
-  --states 64 `
-  --seeds "91,92,93" `
-  --beam-width 32 `
-  --anneal-steps 128 `
-  --autoreg-candidates 64 `
-  --autoreg-refine-steps 0 `
-  --out results/benchmark_autoreg_repro `
-  --device cuda
-```
-
-## Exact Optimal Check
-
-The full `28 layers x 5 UAV` problem is too large for exhaustive search. For a true optimality check, keep `N=5` and reduce the number of layers:
-
-```powershell
-python -m src.exact_optimal_compare `
-  --config configs/qwen3_calibrated.yaml `
-  --policy results/autoreg_rl_exact_L7_N5/autoreg_policy_best.pt `
-  --out results/exact_optimal_L7_N5_repro `
-  --num-layers 7 `
-  --num-uavs 5 `
-  --states 64 `
-  --max-states 1000000 `
-  --autoreg-candidates 2048
-```
-
-The checked run in `results/exact_optimal_L7_N5_learned` enumerates `5^7 = 78125` assignments per state. In that reduced 5-UAV setting, the strongest heuristic matches the exact optimum, while `autoreg_rl_pure` remains close with mean optimality gap `0.000294`.
-
-## Train
-
-```powershell
-python -m src.train_autoreg_rl `
-  --config configs/qwen3_calibrated.yaml `
-  --out results/autoreg_rl_teacher_repro `
-  --teacher-states 1500 `
-  --teacher-updates 1200 `
-  --episodes 300 `
-  --batch-states 8 `
-  --candidates 128 `
-  --validation-states 64 `
-  --eval-candidates 512 `
-  --device cuda
-```
-
-## Fairness Note
-
-The RL policy was trained with teacher warm-start from strong heuristic solutions. This should be reported as teacher-warm-start RL. During inference/benchmarking, heuristic actions are not placed into the RL candidate pool.

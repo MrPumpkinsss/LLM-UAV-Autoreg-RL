@@ -50,6 +50,8 @@ def main() -> None:
     out_dir = ensure_dir(args.out)
     summary = json.loads((real_dir / "real_profile_summary.json").read_text(encoding="utf-8"))
     curve = json.loads((real_dir / "ppl_corruption_curve.json").read_text(encoding="utf-8"))
+    layer_summary_path = real_dir / "layer_ppl_summary.json"
+    layer_summary = json.loads(layer_summary_path.read_text(encoding="utf-8")) if layer_summary_path.exists() else None
     ppl_ref = float(summary["ppl_ref"])
     gamma = float(summary["fitted_gamma"])
 
@@ -105,6 +107,8 @@ def main() -> None:
         "|---|---:|",
         f"| PPL_ref | {metrics['ppl_ref']:.6f} |",
         f"| gamma | {metrics['gamma']:.6f} |",
+        f"| layer gamma sum | {float(layer_summary['fitted_gamma_sum']):.6f} |" if layer_summary else "| layer gamma sum | unavailable |",
+        f"| layer mean R2 | {float(layer_summary['fitted_r2']):.6f} |" if layer_summary else "| layer mean R2 | unavailable |",
         f"| R2 log-ratio | {metrics['r2_log_ratio']:.6f} |",
         f"| RMSE log-ratio | {metrics['rmse_log_ratio']:.6f} |",
         f"| MAE PPL | {metrics['mae_ppl']:.6f} |",
