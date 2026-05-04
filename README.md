@@ -8,9 +8,9 @@ The current method is a pure autoregressive RL policy for assigning Qwen3-0.6B l
 
 Latest benchmark: `5 seeds x 64 states = 320 states`, `28` LLM layers, real Qwen3-0.6B layer-calibrated profile, CUDA inference.
 
-Checkpoint: `results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt`
+Checkpoint: `results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt`
 
-Main benchmark: `results/benchmark_layer_calibrated_k256_stronger_5seed`
+Main benchmark: `results/benchmark_layer_calibrated_hard_k256_5seed`
 
 Reward for feasible deployments:
 
@@ -56,26 +56,27 @@ Profile calibration:
 
 ## Benchmark
 
+The current policy is trained with `k=256` candidates and hard-state weighted replay. Hard states are the benchmark states where the previous pure RL policy lost to the best non-RL baseline; they are sampled more often during training and weighted by loss size. This changes the training distribution only. At inference time, `autoreg_rl_pure` still samples candidates only from the learned policy and does not insert strong heuristic actions.
+
 The strongest baseline set includes `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`. Runtime is measured separately for every method.
 
 | method | reward | feasible | latency | PPL | runtime_s | margin | win/tie |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| hybrid_heuristic | -0.499117 +/- 0.787499 | 1.0000 | 2.6578 | 48.7862 | 0.01313 |  |  |
-| block_lns_strong | -0.499191 +/- 0.787523 | 1.0000 | 2.6519 | 48.8368 | 0.07037 |  |  |
-| autoreg_rl_pure_k256 | -0.499749 +/- 0.803151 | 1.0000 | 2.6190 | 49.1337 | 0.04297 | -0.000632 | 0.7781 |
-| autoreg_rl_pure_k128 | -0.506060 +/- 0.820841 | 1.0000 | 2.6338 | 49.5054 | 0.03698 | -0.006943 | 0.6750 |
-| autoreg_rl_pure_k64 | -0.540701 +/- 0.998598 | 1.0000 | 2.6465 | 52.0763 | 0.03312 | -0.041584 | 0.5781 |
-| block_beam_strong | -0.584792 +/- 1.109608 | 1.0000 | 2.7353 | 54.7887 | 0.32396 |  |  |
-| autoreg_rl_pure_k16 | -0.634396 +/- 1.575555 | 1.0000 | 2.6661 | 59.1424 | 0.02870 | -0.135279 | 0.3656 |
-| simulated_annealing | -13.754920 +/- 31.010895 | 0.8906 | 18.0197 | 1.3716e29 | 0.00740 |  |  |
-| local_search | -13.771714 +/- 31.006918 | 0.8906 | 18.0157 | 1.3716e29 | 0.01585 |  |  |
-| beam_search | -17.326284 +/- 290.588877 | 1.0000 | 2.8847 | 1343.2341 | 0.03190 |  |  |
-| random | -100.000000 +/- 0.000000 | 0.0000 | 110.9442 | 5.0923e32 | 0.02494 |  |  |
-| pdp_aware_greedy | -1076.841052 +/- 10055.860361 | 0.9969 | 3.4499 | 1338960.5587 | 0.00035 |  |  |
+| autoreg_rl_pure_k256_hard | -0.497273 +/- 0.791419 | 1.0000 | 2.6278 | 48.8752 | 0.03475 | 0.001844 | 0.8125 |
+| hybrid_heuristic | -0.499117 +/- 0.787499 | 1.0000 | 2.6578 | 48.7862 | 0.01226 |  |  |
+| block_lns_strong | -0.499191 +/- 0.787523 | 1.0000 | 2.6519 | 48.8368 | 0.06524 |  |  |
+| block_beam_strong | -0.584792 +/- 1.109608 | 1.0000 | 2.7353 | 54.7887 | 0.30765 |  |  |
+| simulated_annealing | -13.754920 +/- 31.010895 | 0.8906 | 18.0197 | 1.3716e29 | 0.00682 |  |  |
+| local_search | -13.771714 +/- 31.006918 | 0.8906 | 18.0157 | 1.3716e29 | 0.01457 |  |  |
+| beam_search | -17.326284 +/- 290.588877 | 1.0000 | 2.8847 | 1343.2341 | 0.03031 |  |  |
+| random | -100.000000 +/- 0.000000 | 0.0000 | 110.9442 | 5.0923e32 | 0.02311 |  |  |
+| pdp_aware_greedy | -1076.841052 +/- 10055.860361 | 0.9969 | 3.4499 | 1338960.5587 | 0.00033 |  |  |
 | block_balanced | -13061686.697982 +/- 112969291.344464 | 0.8281 | 14.6489 | 4.0152e12 | 0.00008 |  |  |
 | latency_greedy | -127873524.298005 +/- 952102671.473644 | 0.9250 | 9.7239 | 3.7472e10 | 0.00007 |  |  |
 
-Candidate-budget sweep:
+Hard-state replay changed the mean margin from `-0.000632` to `+0.001844` and the win/tie rate from `0.7781` to `0.8125`. On the 71 replayed hard states, mean margin improved from `-0.047767` to `-0.025147`.
+
+Pre-hard-replay candidate-budget sweep:
 
 | k | mean margin | min margin | win/tie | strict win | runtime_s |
 |---:|---:|---:|---:|---:|---:|
@@ -84,7 +85,7 @@ Candidate-budget sweep:
 | 128 | -0.00694286 | -1.12779709 | 0.6750 | 0.1344 | 0.03698 |
 | 256 | -0.00063242 | -1.06510871 | 0.7781 | 0.1500 | 0.04297 |
 
-Under the stricter layer-wise PPL surrogate, `k=256` is the recommended operating point. It is effectively tied with the best strong heuristic on mean reward while using only learned-policy candidates, and it has lower mean latency than the top heuristic.
+Under the stricter layer-wise PPL surrogate, `k=256` with hard-state weighted training is the recommended operating point. It beats the best strong heuristic on mean reward while using only learned-policy candidates, and it has lower mean latency than the top heuristic.
 
 ## Real LLM Validation
 
@@ -107,17 +108,17 @@ Random high-transition actions are kept in the report as out-of-distribution str
 
 ## Visuals
 
-![Training curves](results/visuals_layer_calibrated/training_curves.png)
+![Training curves](results/visuals_layer_calibrated_hard_k256/training_curves.png)
 
-![Benchmark reward comparison](results/visuals_layer_calibrated/benchmark_reward_bar.png)
+![Benchmark reward comparison](results/visuals_layer_calibrated_hard_k256/benchmark_reward_bar.png)
 
-![Benchmark feasibility comparison](results/visuals_layer_calibrated/benchmark_feasibility_bar.png)
+![Benchmark feasibility comparison](results/visuals_layer_calibrated_hard_k256/benchmark_feasibility_bar.png)
 
-![RL margin histogram](results/visuals_layer_calibrated/margin_histogram.png)
+![RL margin histogram](results/visuals_layer_calibrated_hard_k256/margin_histogram.png)
 
-![RL margin by seed](results/visuals_layer_calibrated/margin_by_seed.png)
+![RL margin by seed](results/visuals_layer_calibrated_hard_k256/margin_by_seed.png)
 
-![Autoreg-RL vs best heuristic](results/visuals_layer_calibrated/autoreg_vs_heuristic_scatter.png)
+![Autoreg-RL vs best heuristic](results/visuals_layer_calibrated_hard_k256/autoreg_vs_heuristic_scatter.png)
 
 ![Surrogate PPL fit](results/surrogate_benchmark/surrogate_ppl_fit.png)
 
@@ -145,20 +146,27 @@ Train the current policy:
 python -m src.train_autoreg_rl `
   --config configs/qwen3_calibrated.yaml `
   --real-dir results/qwen3_0p6b_real_profile `
-  --out results/autoreg_rl_layer_calibrated_k16_blocks `
+  --out results/autoreg_rl_layer_calibrated_hard_k256 `
   --device cuda `
-  --init-policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
-  --episodes 1000 `
-  --batch-states 64 `
-  --candidates 16 `
-  --eval-candidates 64 `
+  --init-policy results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt `
+  --episodes 800 `
+  --batch-states 32 `
+  --candidates 256 `
+  --eval-candidates 256 `
   --validation-states 128 `
   --teacher-states 0 `
   --teacher-updates 0 `
   --projection-mode blocks `
   --max-blocks 5 `
   --candidate-mode beam `
-  --beam-temperature 1.0
+  --beam-temperature 1.0 `
+  --hard-benchmark-rows results/benchmark_layer_calibrated_k256_stronger_5seed/benchmark_rows.csv `
+  --hard-margin-threshold=-1e-9 `
+  --hard-max-states 96 `
+  --hard-fraction 0.5 `
+  --hard-weight-scale 24 `
+  --hard-min-weight 1 `
+  --hard-max-weight 16
 ```
 
 Run the recommended `k=256` benchmark:
@@ -167,7 +175,7 @@ Run the recommended `k=256` benchmark:
 python -m src.benchmark_real_profile `
   --config configs/qwen3_calibrated.yaml `
   --real-dir results/qwen3_0p6b_real_profile `
-  --policy results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt `
+  --policy results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt `
   --states 64 `
   --seeds "91,92,93,94,95" `
   --beam-width 32 `
@@ -178,7 +186,7 @@ python -m src.benchmark_real_profile `
   --max-blocks 5 `
   --candidate-mode beam `
   --beam-temperature 1.0 `
-  --out results/benchmark_layer_calibrated_k256_stronger_5seed `
+  --out results/benchmark_layer_calibrated_hard_k256_5seed `
   --device cuda
 ```
 
@@ -189,7 +197,7 @@ python -m src.benchmark_real_action_ppl `
   --config configs/qwen3_calibrated.yaml `
   --llm-config configs/real_llm.yaml `
   --real-dir results/qwen3_0p6b_real_profile `
-  --policy results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt `
+  --policy results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt `
   --states 16 `
   --repeats 2 `
   --batch-size 4 `
@@ -204,9 +212,9 @@ Regenerate visuals:
 
 ```powershell
 python -m src.make_visuals `
-  --train-dir results/autoreg_rl_layer_calibrated_k16_blocks `
-  --benchmark-dir results/benchmark_layer_calibrated_k256_stronger_5seed `
-  --out results/visuals_layer_calibrated
+  --train-dir results/autoreg_rl_layer_calibrated_hard_k256 `
+  --benchmark-dir results/benchmark_layer_calibrated_hard_k256_5seed `
+  --out results/visuals_layer_calibrated_hard_k256
 ```
 
 ## Repository Layout

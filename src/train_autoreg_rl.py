@@ -4,16 +4,34 @@ import argparse
 import csv
 import json
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import torch
 
 from .autoreg_rl_agent import AutoregRLAgent
-from .baselines import evaluate_full_benchmark
+from .baselines import evaluate_full_benchmark, evaluate_full_benchmark_timed
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
 from .llm_profile import build_qwen3_0p6b_profile, build_qwen3_0p6b_real_profile
+
+
+@dataclass(frozen=True)
+class HardStateSpec:
+    seed: int
+    state_id: int
+    margin: float
+    weight: float
+
+
+@dataclass(frozen=True)
+class HardStateItem:
+    state: object
+    seed: int
+    state_id: int
+    margin: float
+    weight: float
 
 
 def _torch_attempts_and_residual(env: LLMUAVEnv, p: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -228,6 +246,133 @@ def load_teacher_cache(agent: AutoregRLAgent, path: Path, limit: int | None = No
     return count
 
 
+def load_hard_state_specs(
+    rows_path: Path,
+    *,
+    method: str,
+    baseline: str,
+    margin_threshold: float,
+    max_states: int | None,
+    weight_scale: float,
+    min_weight: float,
+    max_weight: float,
+) -> list[HardStateSpec]:
+    if not rows_path.exists():
+        raise FileNotFoundError(rows_path)
+    by_state: dict[tuple[int, int], dict[str, float]] = {}
+    with rows_path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            key = (int(row["seed"]), int(row["state_id"]))
+            by_state.setdefault(key, {})[str(row["method"])] = float(row["reward"])
+
+    specs: list[HardStateSpec] = []
+    for (seed, state_id), rewards in by_state.items():
+        if method not in rewards:
+            continue
+        if baseline == "best_nonrl":
+            other_rewards = [value for name, value in rewards.items() if name != method]
+            if not other_rewards:
+                continue
+            baseline_reward = max(other_rewards)
+        else:
+            if baseline not in rewards:
+                continue
+            baseline_reward = rewards[baseline]
+        margin = rewards[method] - baseline_reward
+        if margin < margin_threshold:
+            loss = max(0.0, -margin)
+            weight = min_weight + weight_scale * loss
+            weight = float(np.clip(weight, min_weight, max_weight))
+            specs.append(HardStateSpec(seed=seed, state_id=state_id, margin=float(margin), weight=weight))
+
+    specs.sort(key=lambda item: item.margin)
+    if max_states is not None and max_states > 0:
+        specs = specs[: int(max_states)]
+    return specs
+
+
+def materialize_hard_states(
+    specs: list[HardStateSpec],
+    cfg: dict,
+    real_dir: Path | None,
+    beam_width: int,
+    anneal_steps: int,
+) -> list[HardStateItem]:
+    if not specs:
+        return []
+
+    by_seed: dict[int, list[HardStateSpec]] = {}
+    for spec in specs:
+        by_seed.setdefault(spec.seed, []).append(spec)
+
+    hard_states: list[HardStateItem] = []
+    for seed, seed_specs in sorted(by_seed.items()):
+        seed_specs = sorted(seed_specs, key=lambda item: item.state_id)
+        rng = np.random.default_rng(seed)
+        if real_dir is not None:
+            profile = build_qwen3_0p6b_real_profile(cfg["profile"], real_dir, rng)
+        else:
+            profile = build_qwen3_0p6b_profile(cfg["profile"], rng)
+        env = LLMUAVEnv(cfg, profile, rng)
+        next_index = 0
+        spec_index = 0
+        max_state_id = seed_specs[-1].state_id
+        for state_id in range(max_state_id + 1):
+            state = env.sample_state()
+            # The benchmark consumes the same RNG inside the heuristic suite
+            # before moving to the next state. Replaying that consumption keeps
+            # seed/state_id hard cases aligned with benchmark_rows.csv.
+            evaluate_full_benchmark_timed(
+                env,
+                state,
+                rng,
+                beam_width=beam_width,
+                anneal_steps=anneal_steps,
+            )
+            while spec_index < len(seed_specs) and seed_specs[spec_index].state_id == state_id:
+                spec = seed_specs[spec_index]
+                hard_states.append(
+                    HardStateItem(
+                        state=state,
+                        seed=seed,
+                        state_id=state_id,
+                        margin=spec.margin,
+                        weight=spec.weight,
+                    )
+                )
+                spec_index += 1
+            next_index = state_id + 1
+        if spec_index != len(seed_specs):
+            raise RuntimeError(f"Failed to materialize all hard states for seed={seed}; stopped at state_id={next_index}")
+    return hard_states
+
+
+def sample_training_states(
+    env: LLMUAVEnv,
+    rng: np.random.Generator,
+    batch_states: int,
+    hard_states: list[HardStateItem],
+    hard_fraction: float,
+) -> tuple[list, np.ndarray]:
+    hard_count = 0
+    if hard_states and hard_fraction > 0.0:
+        hard_count = int(round(batch_states * hard_fraction))
+        hard_count = min(max(1, hard_count), batch_states)
+    random_count = batch_states - hard_count
+    states = [env.sample_state() for _ in range(random_count)]
+    weights = [1.0] * random_count
+    if hard_count > 0:
+        probs = np.asarray([item.weight for item in hard_states], dtype=np.float64)
+        probs = probs / max(float(np.sum(probs)), 1e-12)
+        picked = rng.choice(len(hard_states), size=hard_count, replace=True, p=probs)
+        for idx in picked:
+            item = hard_states[int(idx)]
+            states.append(item.state)
+            weights.append(item.weight)
+    return states, np.asarray(weights, dtype=np.float32)
+
+
 def evaluate_agent(agent: AutoregRLAgent, env: LLMUAVEnv, states: list, candidates: int, temperature: float) -> dict[str, float]:
     rewards = []
     costs = []
@@ -333,6 +478,14 @@ def main() -> None:
     parser.add_argument("--candidate-overgenerate", type=int, default=None)
     parser.add_argument("--candidate-beam-count", type=int, default=None)
     parser.add_argument("--candidate-min-hamming", type=int, default=None)
+    parser.add_argument("--hard-benchmark-rows", default=None)
+    parser.add_argument("--hard-baseline", default="best_nonrl")
+    parser.add_argument("--hard-margin-threshold", type=float, default=None)
+    parser.add_argument("--hard-max-states", type=int, default=None)
+    parser.add_argument("--hard-fraction", type=float, default=None)
+    parser.add_argument("--hard-weight-scale", type=float, default=None)
+    parser.add_argument("--hard-min-weight", type=float, default=None)
+    parser.add_argument("--hard-max-weight", type=float, default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -381,6 +534,22 @@ def main() -> None:
         ar_cfg["candidate_beam_count"] = args.candidate_beam_count
     if args.candidate_min_hamming is not None:
         ar_cfg["candidate_min_hamming"] = args.candidate_min_hamming
+    if args.hard_benchmark_rows is not None:
+        ar_cfg["hard_benchmark_rows"] = args.hard_benchmark_rows
+    if args.hard_baseline is not None:
+        ar_cfg["hard_baseline"] = args.hard_baseline
+    if args.hard_margin_threshold is not None:
+        ar_cfg["hard_margin_threshold"] = args.hard_margin_threshold
+    if args.hard_max_states is not None:
+        ar_cfg["hard_max_states"] = args.hard_max_states
+    if args.hard_fraction is not None:
+        ar_cfg["hard_fraction"] = args.hard_fraction
+    if args.hard_weight_scale is not None:
+        ar_cfg["hard_weight_scale"] = args.hard_weight_scale
+    if args.hard_min_weight is not None:
+        ar_cfg["hard_min_weight"] = args.hard_min_weight
+    if args.hard_max_weight is not None:
+        ar_cfg["hard_max_weight"] = args.hard_max_weight
 
     seed = int(cfg["seed"])
     set_seed(seed)
@@ -419,6 +588,44 @@ def main() -> None:
     entropy_end = float(ar_cfg.get("entropy_coef_end", 0.002))
     advantage_scale = float(ar_cfg.get("advantage_scale", 4.0))
     reward_clip = float(ar_cfg.get("reward_clip", 8.0))
+    hard_states: list[HardStateItem] = []
+    hard_specs: list[HardStateSpec] = []
+    hard_rows_path = ar_cfg.get("hard_benchmark_rows")
+    if hard_rows_path:
+        hard_specs = load_hard_state_specs(
+            Path(str(hard_rows_path)),
+            method=str(ar_cfg.get("hard_method", "autoreg_rl_pure")),
+            baseline=str(ar_cfg.get("hard_baseline", "best_nonrl")),
+            margin_threshold=float(ar_cfg.get("hard_margin_threshold", -1e-9)),
+            max_states=ar_cfg.get("hard_max_states"),
+            weight_scale=float(ar_cfg.get("hard_weight_scale", 24.0)),
+            min_weight=float(ar_cfg.get("hard_min_weight", 1.0)),
+            max_weight=float(ar_cfg.get("hard_max_weight", 16.0)),
+        )
+        hard_states = materialize_hard_states(
+            hard_specs,
+            cfg,
+            real_dir,
+            beam_width=int(ar_cfg.get("hard_beam_width", ar_cfg.get("teacher_beam_width", 32))),
+            anneal_steps=int(ar_cfg.get("hard_anneal_steps", ar_cfg.get("teacher_anneal_steps", 128))),
+        )
+        hard_report_rows = [
+            {
+                "seed": item.seed,
+                "state_id": item.state_id,
+                "margin": item.margin,
+                "weight": item.weight,
+            }
+            for item in hard_states
+        ]
+        write_csv(out_dir / "hard_states_used.csv", hard_report_rows)
+        if hard_states:
+            print(
+                f"loaded_hard_states={len(hard_states)} "
+                f"margin_mean={np.mean([item.margin for item in hard_states]):.6f} "
+                f"margin_min={np.min([item.margin for item in hard_states]):.6f}",
+                flush=True,
+            )
     best_eval_reward = -float("inf")
     started = time.time()
 
@@ -477,7 +684,13 @@ def main() -> None:
         frac = (episode - 1) / max(episodes - 1, 1)
         temperature = temp_start * ((temp_end / temp_start) ** frac)
         entropy_coef = entropy_start * ((entropy_end / max(entropy_start, 1e-9)) ** frac)
-        states = [env.sample_state() for _ in range(batch_states)]
+        states, state_weights_np = sample_training_states(
+            env,
+            rng,
+            batch_states,
+            hard_states,
+            hard_fraction=float(ar_cfg.get("hard_fraction", 0.0)),
+        )
         state_vecs = np.stack([env.state_vector(state) for state in states])
         caps = np.stack([agent.mem_caps_norm(state) for state in states])
         batch = agent.sample_batch(state_vecs, caps, candidates=candidates, temperature=temperature)
@@ -509,13 +722,15 @@ def main() -> None:
         ranked_np = ranked_t[:, :elite_count].detach().cpu().numpy()
         for sid in range(batch_states):
             for elite_i in ranked_np[sid]:
-                agent.replay.add(state_vecs[sid], caps[sid], train_actions[sid, int(elite_i)])
+                agent.replay.add(state_vecs[sid], caps[sid], train_actions[sid, int(elite_i)], weight=float(state_weights_np[sid]))
 
         baseline = rewards_t.mean(dim=1, keepdim=True)
         std = rewards_t.std(dim=1, keepdim=True).clamp_min(1e-3)
         advantages = (advantage_scale * (rewards_t - baseline) / std).clamp(-reward_clip, reward_clip)
-        policy_loss = -(batch.log_probs * advantages.detach()).mean()
-        entropy_loss = -entropy_coef * batch.entropy.mean()
+        state_weights_t = torch.from_numpy(state_weights_np).to(agent.device).view(batch_states, 1)
+        state_weights_t = state_weights_t / torch.clamp(state_weights_t.mean(), min=1e-6)
+        policy_loss = -((batch.log_probs * advantages.detach()) * state_weights_t).mean()
+        entropy_loss = -entropy_coef * (batch.entropy * state_weights_t).mean()
         loss = policy_loss + entropy_loss
         agent.optimizer.zero_grad(set_to_none=True)
         loss.backward()
@@ -535,6 +750,9 @@ def main() -> None:
                 "candidate_feasible": float(np.mean(feasible_matrix)),
                 "temperature": temperature,
                 "entropy_coef": entropy_coef,
+                "hard_batch_fraction": float(np.mean(state_weights_np > 1.0)),
+                "state_weight_mean": float(np.mean(state_weights_np)),
+                "state_weight_max": float(np.max(state_weights_np)),
                 "policy_loss": float(policy_loss.detach().cpu()),
                 "loss": float(loss.detach().cpu()),
                 "replay_loss": replay_stats["replay_loss"] if replay_stats else np.nan,
@@ -574,6 +792,10 @@ def main() -> None:
         "runtime_s": time.time() - started,
         "device": str(agent.device),
         "teacher_reward_mean": float(np.mean(teacher_rewards)) if teacher_rewards else None,
+        "hard_states": len(hard_states),
+        "hard_margin_mean": float(np.mean([item.margin for item in hard_states])) if hard_states else None,
+        "hard_margin_min": float(np.min([item.margin for item in hard_states])) if hard_states else None,
+        "hard_fraction": float(ar_cfg.get("hard_fraction", 0.0)),
         "final_eval": eval_rows[-1] if eval_rows else {},
     }
     (out_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
