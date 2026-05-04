@@ -12,24 +12,63 @@ Checkpoint: `results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.p
 
 Main benchmark: `results/benchmark_layer_calibrated_hard_k256_5seed`
 
-Reward for feasible deployments:
+## Observation, Action, Reward
+
+The current setting uses `N=5` UAVs and `L=28` Qwen3-0.6B layers.
+
+The base environment observation is a flattened vector `x in R^93`:
+
+| component | shape | dim | normalization |
+|---|---:|---:|---|
+| SNR matrix | `N x N` | 25 | `log1p(snr) / log1p(1e6)` |
+| packet-drop probability matrix | `N x N` | 25 | raw probability in `[0, 1]` |
+| UAV compute capacity | `N` | 5 | `compute_hz / 1e10` |
+| UAV memory capacity | `N` | 5 | `mem_bytes / 512 MiB` |
+| UAV energy budget | `N` | 5 | `energy_j / 2000` |
+| previous layer placement | `L` | 28 | `previous_uav_id / (N - 1)` |
+| total |  | 93 |  |
+
+`hover_power_w` is sampled by the simulator and affects energy feasibility during evaluation, but it is not part of the current policy observation.
+
+At each autoregressive decoding step, the policy combines the encoded base observation with per-layer context:
+
+| step input | shape | dim |
+|---|---:|---:|
+| encoded base observation | `hidden_dim` | 512 |
+| current layer features: memory, compute cycles, previous activation, next activation, previous-layer importance, position | `6` | 6 |
+| previous assigned UAV one-hot | `N` | 5 |
+| current normalized memory used per UAV | `N` | 5 |
+| current layer index fraction | `1` | 1 |
+| remaining global memory fraction | `1` | 1 |
+| total step input |  | 530 |
+
+The step network outputs `N=5` logits, one for each UAV. Memory-infeasible choices are masked during sampling.
+
+The action is the layer-to-UAV assignment vector:
+
+```text
+a = [u_0, u_1, ..., u_27], where u_l in {0, 1, 2, 3, 4}
+```
+
+For feasible deployments, the reward is:
 
 ```text
 reward = -cost
 cost = alpha * ((PPL_hat - PPL_ref) / PPL_ref) + beta * (latency_s / latency_ref_s)
 ```
 
-Hard-infeasible deployments receive `reward = -100.0`. The calibrated config uses `alpha = 0.4`, `beta = 0.6`, `latency_ref_s = 6.0`, and `PPL_ref = 30.811979`.
+The calibrated config uses `alpha = 0.4`, `beta = 0.6`, `PPL_ref = 30.811979`, and `latency_ref_s = 6.0`. Hard-infeasible deployments receive `reward = -100.0`. Feasibility is checked against UAV memory and energy budgets; communication latency is computed with KKT closed-form bandwidth allocation.
 
-## RL Principle
-
-The decision variable is a layer assignment vector. For a 28-layer model and 5 UAVs, the action is:
+`PPL_hat` is supplied by the real-LLM-calibrated surrogate described below:
 
 ```text
-a = [u_0, u_1, ..., u_27], where u_l in {0, 1, 2, 3, 4}
+PPL_hat = PPL_ref * exp(sum_l gamma_l * residual_l)
+residual_l = p_l^(r + 1)
 ```
 
-The observation contains the current wireless channel matrix, packet-drop matrix, UAV compute/memory/energy resources, and the previous layer placement. The policy is autoregressive: it assigns one layer at a time, and each step is conditioned on the global state, the current layer features, the previous assigned UAV, and the memory already used on each UAV.
+The current config uses one retransmission, so `r = 1` and `residual_l = p_l^2`.
+
+## RL Principle
 
 During training, the policy samples `k=256` candidate assignments per state. The simulator evaluates all candidates with the same reward used in the benchmark. The highest-reward candidates are used for policy-gradient updates and self-imitation replay. Hard-state weighted replay increases the probability of revisiting states where the previous RL policy lost to the best non-RL baseline, with larger weights for larger losses.
 
