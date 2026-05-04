@@ -227,15 +227,36 @@ python -m src.make_visuals `
 
 ## Repository Layout
 
-- `src/autoreg_rl_agent.py`: masked autoregressive policy for layer-to-UAV assignment.
-- `src/train_autoreg_rl.py`: RL/self-imitation training.
-- `src/baselines.py`: greedy, local search, beam search, simulated annealing, block LNS, and hybrid heuristics.
-- `src/env.py`: LLM-UAV simulator, constraints, reward, and KKT bandwidth allocation.
-- `src/real_llm_profile.py`: Qwen3-0.6B profile and explicit paper-formula PPL calibration.
-- `src/real_llm_layer_calibration.py`: layer-wise real PPL sensitivity calibration.
-- `src/benchmark_real_profile.py`: simulation benchmark with strong baselines.
-- `src/benchmark_real_action_ppl.py`: real action-level Qwen PPL validation.
-- `configs/qwen3_calibrated.yaml`: calibrated simulation config.
+```text
+.
+|-- configs/
+|   |-- qwen3_calibrated.yaml        # LLM-UAV simulator config, reward weights, constraints, Qwen3 profile
+|   `-- real_llm.yaml                # real Qwen3-0.6B loading/PPL validation config
+|-- src/
+|   |-- env.py                       # LLM-UAV environment, hard constraints, reward, KKT bandwidth allocation
+|   |-- channel.py                   # wireless channel and packet-drop modeling
+|   |-- llm_profile.py               # synthetic and real-calibrated Qwen3-0.6B layer profile builders
+|   |-- autoreg_rl_agent.py          # masked autoregressive RL policy
+|   |-- train_autoreg_rl.py          # RL/self-imitation training entry point
+|   |-- baselines.py                 # greedy, beam, local search, annealing, block LNS, hybrid heuristics
+|   |-- benchmark_real_profile.py    # simulator benchmark against strong baselines
+|   |-- benchmark_real_action_ppl.py # real LLM action-level PPL validation
+|   |-- benchmark_surrogate.py       # surrogate-vs-real-PPL calibration benchmark
+|   |-- real_llm_profile.py          # paper-formula PPL computation with Qwen3-0.6B
+|   |-- real_llm_layer_calibration.py # layer-wise hidden-state corruption calibration
+|   `-- make_visuals.py              # README/report figures
+|-- results/
+|   |-- autoreg_rl_layer_calibrated_hard_k256/       # released RL checkpoint and training logs
+|   |-- benchmark_layer_calibrated_hard_k256_5seed/  # main 5-seed benchmark
+|   |-- visuals_layer_calibrated_hard_k256/          # figures embedded in this README
+|   |-- qwen3_0p6b_real_profile/                     # real Qwen3 calibration artifacts
+|   |-- real_action_ppl_validation_layer_calibrated_retrained/
+|   `-- surrogate_benchmark/
+|-- requirements.txt
+`-- README.md
+```
+
+Generated experiment outputs are ignored by default. The repository tracks only the released checkpoint, the current benchmark/validation artifacts, calibration files, and README figures.
 
 ## Setup
 
