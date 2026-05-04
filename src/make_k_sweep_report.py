@@ -21,13 +21,15 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--k16-dir", default="results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed")
     parser.add_argument("--k64-dir", default="results/benchmark_real_profile_k64_blocks_policy_beam_5seed")
-    parser.add_argument("--k256-dir", default="results/benchmark_real_profile_k256_blocks_policy_beam_5seed")
-    parser.add_argument("--out-dir", default="results/benchmark_real_profile_k_sweep_5seed")
+    parser.add_argument("--k128-dir", default="results/benchmark_real_profile_k128_blocks_fast_policy_beam_5seed")
+    parser.add_argument("--k256-dir", default="results/benchmark_real_profile_k256_blocks_fast_policy_beam_5seed")
+    parser.add_argument("--out-dir", default="results/benchmark_real_profile_k_sweep_fast_5seed")
     args = parser.parse_args()
 
     k_dirs = {
         16: Path(args.k16_dir),
         64: Path(args.k64_dir),
+        128: Path(args.k128_dir),
         256: Path(args.k256_dir),
     }
     out_dir = Path(args.out_dir)
@@ -95,6 +97,7 @@ def main() -> None:
         "fairness": "RL rows use learned-policy candidates only; no baseline heuristic actions are inserted into the RL candidate pool.",
         "k16": margins[16],
         "k64": margins[64],
+        "k128": margins[128],
         "k256": margins[256],
     }
     (out_dir / "k_sweep_meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -130,7 +133,7 @@ def main() -> None:
             "|---:|---:|---:|---:|---:|---:|",
         ]
     )
-    for k in [16, 64, 256]:
+    for k in [16, 64, 128, 256]:
         row = rl_df[rl_df["k"] == k].iloc[0]
         lines.append(
             f"| {k} | {margins[k]['autoreg_rl_pure_margin_mean']:.8f} | "

@@ -324,6 +324,12 @@ class AutoregRLAgent:
 
     def project_candidate_action(self, action: np.ndarray, state: SimState, max_passes: int = 2) -> np.ndarray:
         mode = str(self.rl_cfg.get("projection_mode", "action")).lower()
+        if mode in {"block_fast", "blocks_fast", "project_blocks_fast"}:
+            return self.env.project_blocks_fast(
+                action,
+                state,
+                max_blocks=int(self.rl_cfg.get("max_blocks", self.env.num_uavs)),
+            )
         if mode in {"block", "blocks", "project_blocks"}:
             return self.env.project_blocks(
                 action,

@@ -49,6 +49,7 @@ class LLMUAVEnv:
         self.state_dim = self.num_uavs * self.num_uavs * 2 + self.num_uavs * 3 + self.num_layers
         self.action_dim = self.num_layers
         self._last_action = np.arange(self.num_layers, dtype=np.int64) % self.num_uavs
+        self._prefix_mem_bytes = np.concatenate([[0.0], np.cumsum(self.profile.mem_bytes)])
 
     def sample_resources(self) -> UAVResources:
         uav = self.cfg["uav"]
@@ -206,6 +207,43 @@ class LLMUAVEnv:
             mem_used[chosen] += block_mem
 
         return self.project_action(projected, state, max_passes=1)
+
+    def project_blocks_fast(self, action: np.ndarray, state: SimState, max_blocks: int | None = None) -> np.ndarray:
+        """Fast contiguous block projection for inference candidate generation."""
+
+        raw = np.asarray(action, dtype=np.int64)
+        if max_blocks is None:
+            max_blocks = self.num_uavs
+        blocks: list[tuple[int, int, int]] = []
+        start = 0
+        current = int(raw[0])
+        for layer in range(1, self.num_layers):
+            nxt = int(raw[layer])
+            if nxt != current and len(blocks) < max_blocks - 1:
+                blocks.append((start, layer, current))
+                start = layer
+                current = nxt
+        blocks.append((start, self.num_layers, current))
+
+        projected = np.empty(self.num_layers, dtype=np.int64)
+        mem_used = np.zeros(self.num_uavs, dtype=np.float64)
+        caps = state.resources.mem_bytes
+        for start, end, preferred in blocks:
+            block_mem = float(self._prefix_mem_bytes[end] - self._prefix_mem_bytes[start])
+            order = [preferred] + [
+                int(i)
+                for i in np.argsort(mem_used / np.maximum(caps, 1.0))
+                if int(i) != preferred
+            ]
+            chosen = order[-1]
+            for uav in order:
+                if mem_used[uav] + block_mem <= caps[uav] + 1e-9:
+                    chosen = int(uav)
+                    break
+            projected[start:end] = chosen
+            mem_used[chosen] += block_mem
+
+        return projected
 
     def _repair_energy(self, action: np.ndarray, state: SimState) -> np.ndarray:
         repaired = action.copy()
