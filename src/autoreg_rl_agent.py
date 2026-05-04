@@ -344,16 +344,18 @@ class AutoregRLAgent:
         state_vec = self.env.state_vector(state)
         caps = self.mem_caps_norm(state)
         mode = str(self.rl_cfg.get("candidate_mode", "sample")).lower()
+        overgenerate = max(1, int(self.rl_cfg.get("candidate_overgenerate", 1)))
+        raw_candidates = max(candidates, candidates * overgenerate)
         if mode == "beam":
             actions = self._policy_candidates_beam_fast(
                 state_vec,
                 caps,
-                beam_width=candidates,
+                beam_width=raw_candidates,
                 temperature=float(self.rl_cfg.get("beam_temperature", temperature)),
             )
         elif mode in {"beam_mix", "mixed_beam"}:
             temp_values = self.rl_cfg.get("eval_temperatures", None) or [float(temperature)]
-            per_temp = max(1, candidates // len(temp_values))
+            per_temp = max(1, raw_candidates // len(temp_values))
             parts = []
             for temp_value in temp_values:
                 parts.append(
@@ -365,21 +367,68 @@ class AutoregRLAgent:
                     )
                 )
             actions = np.concatenate(parts, axis=0) if parts else np.empty((0, self.env.num_layers), dtype=np.int64)
-            if actions.shape[0] < candidates:
+            if actions.shape[0] < raw_candidates:
                 pad = self._policy_candidates_fast(
                     state_vec,
                     caps,
-                    self._eval_temperature_schedule(candidates - actions.shape[0], temperature, 0),
+                    self._eval_temperature_schedule(raw_candidates - actions.shape[0], temperature, 0),
                     greedy_count=0,
                 )
                 actions = np.concatenate([actions, pad], axis=0)
-            if actions.shape[0] > candidates:
-                actions = actions[:candidates]
+            if actions.shape[0] > raw_candidates:
+                actions = actions[:raw_candidates]
+        elif mode in {"beam_sample", "sample_beam"}:
+            beam_count = int(self.rl_cfg.get("candidate_beam_count", max(1, int(round(0.75 * candidates)))))
+            beam_count = min(max(1, beam_count), candidates)
+            sample_count = max(0, candidates - beam_count)
+            beam_actions = self._policy_candidates_beam_fast(
+                state_vec,
+                caps,
+                beam_width=beam_count,
+                temperature=float(self.rl_cfg.get("beam_temperature", temperature)),
+            )
+            if sample_count > 0:
+                sample_raw = max(sample_count, sample_count * overgenerate)
+                sample_actions = self._policy_candidates_fast(
+                    state_vec,
+                    caps,
+                    self._eval_temperature_schedule(sample_raw, temperature, 0),
+                    greedy_count=0,
+                )
+                actions = np.concatenate([beam_actions, sample_actions], axis=0)
+            else:
+                actions = beam_actions
         else:
-            temperatures = self._eval_temperature_schedule(candidates, temperature, greedy_count)
+            temperatures = self._eval_temperature_schedule(raw_candidates, temperature, greedy_count)
             actions = self._policy_candidates_fast(state_vec, caps, temperatures, greedy_count=greedy_count)
-        repaired = np.stack([self.project_candidate_action(action, state, max_passes=2) for action in actions])
-        return repaired
+        repaired_all = [self.project_candidate_action(action, state, max_passes=2) for action in actions]
+        unique: list[np.ndarray] = []
+        seen: set[tuple[int, ...]] = set()
+        min_distance = int(self.rl_cfg.get("candidate_min_hamming", 0))
+        for action in repaired_all:
+            key = tuple(int(x) for x in action.tolist())
+            if key in seen:
+                continue
+            if min_distance > 0 and any(int(np.sum(action != prev)) < min_distance for prev in unique):
+                continue
+            seen.add(key)
+            unique.append(action)
+            if len(unique) >= candidates:
+                break
+        if len(unique) < candidates and min_distance > 0:
+            for action in repaired_all:
+                key = tuple(int(x) for x in action.tolist())
+                if key in seen:
+                    continue
+                seen.add(key)
+                unique.append(action)
+                if len(unique) >= candidates:
+                    break
+        if not unique:
+            unique = repaired_all[:1]
+        while len(unique) < candidates:
+            unique.append(unique[-1].copy())
+        return np.stack(unique[:candidates])
 
     def select_policy_candidate(self, state: SimState, candidates: int, temperature: float = 0.5) -> AutoregPolicyEval:
         actions = self.policy_candidates(

@@ -6,9 +6,7 @@ The main result is a teacher-warm-start autoregressive RL policy for Qwen3-0.6B 
 
 ## Current Result
 
-Final report: `results/autoreg_rl_strong_benchmark_report.md`
-
-Latest full benchmark: `3 seeds x 64 states = 192 states`, `N=5` UAVs, `28` LLM layers, `k=64` RL candidates per state, evaluated on CUDA.
+Latest target benchmark: `5 seeds x 64 states = 320 states`, `N=5` UAVs, `28` LLM layers, real Qwen3-0.6B profile, evaluated on CUDA.
 
 Reward is the negative weighted cost for feasible deployments:
 
@@ -19,21 +17,26 @@ cost = alpha * ((PPL_hat - PPL_ref) / PPL_ref) + beta * (latency_s / latency_ref
 
 Hard-infeasible deployments receive `reward = -100.0`. The calibrated config uses `alpha = 0.4`, `beta = 0.6`, `latency_ref_s = 6.0`, and `PPL_ref = 30.824672`.
 
+The primary fair result keeps the final RL candidate budget at `k=16`. It uses only learned-policy candidates with policy-beam overgeneration and deduplication before selecting the final 16 candidates. No strong heuristic actions are inserted into the RL pool.
+
+Checkpoint: `results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt`
+Benchmark: `results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed`
+
 | method | reward | feasible | latency | PPL | runtime/state |
 |---|---:|---:|---:|---:|---:|
-| hybrid_heuristic | -0.199647 +/- 0.069228 | 1.0000 | 1.9431 | 31.2361 | 0.01075s |
-| beam_search | -0.201854 +/- 0.072310 | 1.0000 | 1.9615 | 31.2646 | 0.01075s |
-| autoreg_rl_pure | -0.212208 +/- 0.076782 | 1.0000 | 2.0500 | 31.3805 | 0.02837s |
-| simulated_annealing | -0.267850 +/- 0.134952 | 1.0000 | 2.4852 | 32.3142 | 0.01075s |
-| local_search | -0.269031 +/- 0.136775 | 1.0000 | 2.4911 | 32.3601 | 0.01075s |
-| pdp_aware_greedy | -0.286648 +/- 0.154524 | 1.0000 | 2.6246 | 32.6885 | 0.01075s |
-| latency_greedy | -8.859663 +/- 27.554457 | 0.9167 | 10.4054 | 41.0712 | 0.01075s |
-| block_balanced | -16.508051 +/- 36.025838 | 0.8438 | 18.0614 | 47.5062 | 0.01075s |
-| random | -100.000000 +/- 0.000000 | 0.0000 | 107.6689 | 100.4916 | 0.01075s |
+| autoreg_rl_pure | -0.263797 +/- 0.074131 | 1.0000 | 2.5672 | 31.3703 | 0.02796s |
+| hybrid_heuristic | -0.273453 +/- 0.086901 | 1.0000 | 2.6411 | 31.5446 | 0.01104s |
+| beam_search | -0.278149 +/- 0.094707 | 1.0000 | 2.6786 | 31.6178 | 0.01104s |
+| simulated_annealing | -0.351507 +/- 0.146873 | 1.0000 | 3.2171 | 33.1205 | 0.01104s |
+| local_search | -0.352602 +/- 0.148446 | 1.0000 | 3.2242 | 33.1506 | 0.01104s |
+| pdp_aware_greedy | -0.369239 +/- 0.178122 | 1.0000 | 3.3570 | 33.4093 | 0.01104s |
+| latency_greedy | -6.340535 +/- 22.905382 | 0.9437 | 8.3329 | 43.5884 | 0.01104s |
+| block_balanced | -13.781014 +/- 33.106199 | 0.8719 | 12.7195 | 48.6002 | 0.01104s |
+| random | -100.000000 +/- 0.000000 | 0.0000 | 109.9627 | 102.5448 | 0.01104s |
 
-Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `-0.01256090`. Win/tie rate: `0.3906`.
+Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `0.00965595`. Win/tie rate: `0.6687`.
 
-With `k=64`, the learned policy remains feasible but no longer beats the strongest heuristic on mean reward.
+Relaxing the final candidate budget to `k=64` with the same pure policy-beam decoder improves the win/tie rate to `0.8625` over the same 320 states, with mean margin `0.01584474` and runtime `0.03110s/state`.
 
 ## Visuals
 
@@ -53,7 +56,7 @@ With `k=64`, the learned policy remains feasible but no longer beats the stronge
 
 The real-model check loads `Qwen/Qwen3-0.6B` with `bfloat16` on CUDA and measures the profile used by the simulator. The full baseline comparison then uses the measured layer parameter counts, reference PPL, and fitted corruption curve in the LLM-UAV environment.
 
-Profile results are stored in `results/qwen3_0p6b_real_profile`. Full baseline benchmark results are stored in `results/benchmark_real_profile_k64`.
+Profile results are stored in `results/qwen3_0p6b_real_profile`. The strongest real-profile benchmarks are stored in `results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed` and `results/benchmark_real_profile_k64_blocks_policy_beam_5seed`.
 
 | item | value |
 |---|---:|
@@ -69,41 +72,41 @@ Profile results are stored in `results/qwen3_0p6b_real_profile`. Full baseline b
 | surrogate fit R2 | 0.997366 |
 | log-ratio RMSE | 0.019277 |
 
-Real-profile baseline comparison, `3 seeds x 64 states`, `k=64`:
+Real-profile baseline comparison, `5 seeds x 64 states`, `k=64`, `max_blocks=5`, `candidate_mode=beam`:
 
 | method | reward | feasible | latency | PPL | runtime/state |
 |---|---:|---:|---:|---:|---:|
-| hybrid_heuristic | -0.269523 +/- 0.082058 | 1.0000 | 2.6010 | 31.5508 | 0.01192s |
-| beam_search | -0.273802 +/- 0.087047 | 1.0000 | 2.6352 | 31.6174 | 0.01192s |
-| autoreg_rl_pure | -0.289838 +/- 0.128823 | 1.0000 | 2.7729 | 31.7920 | 0.03171s |
-| simulated_annealing | -0.344778 +/- 0.133848 | 1.0000 | 3.1465 | 33.1463 | 0.01192s |
-| local_search | -0.345173 +/- 0.133750 | 1.0000 | 3.1503 | 33.1472 | 0.01192s |
-| pdp_aware_greedy | -0.357012 +/- 0.144814 | 1.0000 | 3.2462 | 33.3209 | 0.01192s |
-| latency_greedy | -4.895185 +/- 19.886923 | 0.9583 | 8.3558 | 43.4784 | 0.01192s |
-| block_balanced | -10.417073 +/- 28.891749 | 0.9062 | 12.6621 | 48.6316 | 0.01192s |
-| random | -100.000000 +/- 0.000000 | 0.0000 | 110.8475 | 108.7251 | 0.01192s |
+| autoreg_rl_pure | -0.257609 +/- 0.067512 | 1.0000 | 2.5106 | 31.3289 | 0.03110s |
+| hybrid_heuristic | -0.273453 +/- 0.086901 | 1.0000 | 2.6411 | 31.5446 | 0.01090s |
+| beam_search | -0.278149 +/- 0.094707 | 1.0000 | 2.6786 | 31.6178 | 0.01090s |
+| simulated_annealing | -0.351507 +/- 0.146873 | 1.0000 | 3.2171 | 33.1205 | 0.01090s |
+| local_search | -0.352602 +/- 0.148446 | 1.0000 | 3.2242 | 33.1506 | 0.01090s |
+| pdp_aware_greedy | -0.369239 +/- 0.178122 | 1.0000 | 3.3570 | 33.4093 | 0.01090s |
+| latency_greedy | -6.340535 +/- 22.905382 | 0.9437 | 8.3329 | 43.5884 | 0.01090s |
+| block_balanced | -13.781014 +/- 33.106199 | 0.8719 | 12.7195 | 48.6002 | 0.01090s |
+| random | -100.000000 +/- 0.000000 | 0.0000 | 109.9627 | 102.5448 | 0.01090s |
 
-Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profile benchmark: `-0.02031545`. Win/tie rate: `0.2708`.
+Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profile benchmark: `0.01584474`. Win/tie rate: `0.8625`.
 
-### Best Real-Profile k=16 Block Policy
+### Real-Profile k=16 Block Policy
 
-The strongest current learned policy uses the real Qwen3-0.6B profile, reward-weighted teacher warm start, a pure RL block projection decoder, and a pure policy beam candidate generator. Inference still uses only learned-policy candidates; no baseline beam-search, local-search, simulated-annealing, or greedy heuristic actions are inserted into the RL candidate pool.
+The `k=16` target run uses the real Qwen3-0.6B profile, reward-weighted teacher warm start, a pure RL block projection decoder, and a pure policy beam candidate generator. It overgenerates policy-beam candidates by `4x`, deduplicates them, then keeps the final `k=16`. Inference still uses only learned-policy candidates; no baseline beam-search, local-search, simulated-annealing, or greedy heuristic actions are inserted into the RL candidate pool.
 
 Checkpoint: `results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt`
-Benchmark: `results/benchmark_real_profile_k16_blocks_policy_beam`
+Benchmark: `results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed`
 
-Real-profile baseline comparison, `3 seeds x 64 states`, `k=16`, `max_blocks=5`, `candidate_mode=beam`:
+Real-profile baseline comparison, `5 seeds x 64 states`, `k=16`, `max_blocks=5`, `candidate_mode=beam`, `candidate_overgenerate=4`:
 
 | method | reward | feasible | latency | PPL | runtime/state |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.261002 +/- 0.072367 | 1.0000 | 2.5350 | 31.4028 | 0.01985s |
-| hybrid_heuristic | -0.269523 +/- 0.082058 | 1.0000 | 2.6010 | 31.5508 | 0.01045s |
-| beam_search | -0.273802 +/- 0.087047 | 1.0000 | 2.6352 | 31.6174 | 0.01045s |
-| simulated_annealing | -0.344778 +/- 0.133848 | 1.0000 | 3.1465 | 33.1463 | 0.01045s |
-| local_search | -0.345173 +/- 0.133750 | 1.0000 | 3.1503 | 33.1472 | 0.01045s |
-| pdp_aware_greedy | -0.357012 +/- 0.144814 | 1.0000 | 3.2462 | 33.3209 | 0.01045s |
+| autoreg_rl_pure | -0.263797 +/- 0.074131 | 1.0000 | 2.5672 | 31.3703 | 0.02796s |
+| hybrid_heuristic | -0.273453 +/- 0.086901 | 1.0000 | 2.6411 | 31.5446 | 0.01104s |
+| beam_search | -0.278149 +/- 0.094707 | 1.0000 | 2.6786 | 31.6178 | 0.01104s |
+| simulated_annealing | -0.351507 +/- 0.146873 | 1.0000 | 3.2171 | 33.1205 | 0.01104s |
+| local_search | -0.352602 +/- 0.148446 | 1.0000 | 3.2242 | 33.1506 | 0.01104s |
+| pdp_aware_greedy | -0.369239 +/- 0.178122 | 1.0000 | 3.3570 | 33.4093 | 0.01104s |
 
-Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `0.00852120`. Win/tie rate: `0.6406`.
+Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic: `0.00965595`. Win/tie rate: `0.6687`.
 
 Reproduce it with:
 
@@ -113,7 +116,7 @@ python -m src.benchmark_real_profile `
   --real-dir results/qwen3_0p6b_real_profile `
   --policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
   --states 64 `
-  --seeds "91,92,93" `
+  --seeds "91,92,93,94,95" `
   --beam-width 32 `
   --anneal-steps 128 `
   --autoreg-candidates 16 `
@@ -121,25 +124,31 @@ python -m src.benchmark_real_profile `
   --projection-mode blocks `
   --max-blocks 5 `
   --candidate-mode beam `
-  --beam-temperature 1.0 `
-  --out results/benchmark_real_profile_k16_blocks_policy_beam `
+  --beam-temperature 1.5 `
+  --candidate-overgenerate 4 `
+  --out results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed `
   --device cuda
 ```
 
-Reproduce it with:
+Reproduce the relaxed `k=64` run with:
 
 ```powershell
 python -m src.real_llm_profile --config configs/real_llm.yaml
 python -m src.benchmark_real_profile `
   --config configs/qwen3_calibrated.yaml `
   --real-dir results/qwen3_0p6b_real_profile `
-  --policy results/autoreg_rl_teacher/autoreg_policy_best.pt `
+  --policy results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt `
   --states 64 `
-  --seeds "91,92,93" `
+  --seeds "91,92,93,94,95" `
   --beam-width 32 `
   --anneal-steps 128 `
   --autoreg-candidates 64 `
-  --out results/benchmark_real_profile_k64 `
+  --autoreg-refine-steps 0 `
+  --projection-mode blocks `
+  --max-blocks 5 `
+  --candidate-mode beam `
+  --beam-temperature 1.0 `
+  --out results/benchmark_real_profile_k64_blocks_policy_beam_5seed `
   --device cuda
 ```
 

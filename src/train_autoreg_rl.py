@@ -330,6 +330,9 @@ def main() -> None:
     parser.add_argument("--max-blocks", type=int, default=None)
     parser.add_argument("--candidate-mode", default=None)
     parser.add_argument("--beam-temperature", type=float, default=None)
+    parser.add_argument("--candidate-overgenerate", type=int, default=None)
+    parser.add_argument("--candidate-beam-count", type=int, default=None)
+    parser.add_argument("--candidate-min-hamming", type=int, default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -372,6 +375,12 @@ def main() -> None:
         ar_cfg["candidate_mode"] = args.candidate_mode
     if args.beam_temperature is not None:
         ar_cfg["beam_temperature"] = args.beam_temperature
+    if args.candidate_overgenerate is not None:
+        ar_cfg["candidate_overgenerate"] = args.candidate_overgenerate
+    if args.candidate_beam_count is not None:
+        ar_cfg["candidate_beam_count"] = args.candidate_beam_count
+    if args.candidate_min_hamming is not None:
+        ar_cfg["candidate_min_hamming"] = args.candidate_min_hamming
 
     seed = int(cfg["seed"])
     set_seed(seed)

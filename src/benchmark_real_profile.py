@@ -54,6 +54,9 @@ def main() -> None:
     parser.add_argument("--max-blocks", type=int, default=None)
     parser.add_argument("--candidate-mode", default=None)
     parser.add_argument("--beam-temperature", type=float, default=None)
+    parser.add_argument("--candidate-overgenerate", type=int, default=None)
+    parser.add_argument("--candidate-beam-count", type=int, default=None)
+    parser.add_argument("--candidate-min-hamming", type=int, default=None)
     parser.add_argument("--out", default="results/benchmark_real_profile_k64")
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
@@ -69,6 +72,12 @@ def main() -> None:
         cfg.setdefault("ar_rl", {})["candidate_mode"] = args.candidate_mode
     if args.beam_temperature is not None:
         cfg.setdefault("ar_rl", {})["beam_temperature"] = args.beam_temperature
+    if args.candidate_overgenerate is not None:
+        cfg.setdefault("ar_rl", {})["candidate_overgenerate"] = args.candidate_overgenerate
+    if args.candidate_beam_count is not None:
+        cfg.setdefault("ar_rl", {})["candidate_beam_count"] = args.candidate_beam_count
+    if args.candidate_min_hamming is not None:
+        cfg.setdefault("ar_rl", {})["candidate_min_hamming"] = args.candidate_min_hamming
     out_dir = ensure_dir(args.out)
     rows: list[dict] = []
 
