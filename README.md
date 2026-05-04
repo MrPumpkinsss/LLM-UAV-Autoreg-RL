@@ -66,7 +66,7 @@ PPL_hat = PPL_ref * exp(sum_l gamma_l * residual_l)
 residual_l = p_l^(r + 1)
 ```
 
-The current config uses one retransmission, so `r = 1` and `residual_l = p_l^2`.
+The current config uses one retransmission, so `r = 1` and `residual_l = p_l^2`. Retransmission affects the reward in two places: it increases expected communication latency through the expected number of attempts, and it reduces PPL damage from raw PDP `p_l` to residual loss `p_l^(r+1)`.
 
 ## RL Principle
 
@@ -89,7 +89,17 @@ PPL_hat = PPL_ref * exp(sum_l gamma_l * residual_l)
 residual_l = p_l^(r + 1)
 ```
 
-Here `p_l` is the packet drop probability on the wireless boundary after layer `l`, and `r` is the retransmission count. `gamma_l` is not hand-written: it is fitted by loading Qwen3-0.6B, corrupting each boundary layer's hidden states at controlled drop rates, and measuring the resulting real PPL. The fitted layer sensitivities are stored in `results/qwen3_0p6b_real_profile/layer_ppl_gamma.npy`.
+The PDP-to-PPL path is:
+
+1. A wireless boundary exists only when adjacent layers are placed on different UAVs: `a_l != a_{l+1}`.
+2. The simulator reads the raw link PDP `p_l = PDP[a_l, a_{l+1}]`.
+3. With `r` retransmissions, the residual loss probability after all attempts is `p_l^(r+1)`. For the current config, `r = 1`, so the PPL damage term uses `p_l^2`.
+4. Each boundary layer has a fitted sensitivity `gamma_l`. Higher `gamma_l` means packet loss after that layer hurts PPL more.
+5. The total log-PPL increase is `sum_l gamma_l * p_l^(r+1)`, and the simulator returns `PPL_hat = PPL_ref * exp(total log-PPL increase)`.
+
+In code this is stored as `profile.importance_l = gamma_l / sum(gamma_l)` and `profile.ppl_gamma = sum(gamma_l)`, so `profile.ppl_gamma * sum_l importance_l * residual_l` is equivalent to `sum_l gamma_l * residual_l`.
+
+`gamma_l` is not hand-written: it is fitted by loading Qwen3-0.6B, corrupting each boundary layer's hidden states at controlled drop rates, and measuring the resulting real PPL. The fitted layer sensitivities are stored in `results/qwen3_0p6b_real_profile/layer_ppl_gamma.npy`. The layer-wise calibration used drop rates `0.0`, `0.01`, `0.03`, and `0.05`; the embedding-level stress curve additionally includes up to `0.1`.
 
 Profile calibration:
 
