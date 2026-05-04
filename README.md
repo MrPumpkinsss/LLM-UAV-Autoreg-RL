@@ -24,11 +24,11 @@ Benchmark: `results/benchmark_real_profile_k256_blocks_fast_stronger_5seed`
 
 | method | reward | feasible | latency | PPL | runtime/state |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure, k=256 | -0.250289 +/- 0.064238 | 1.0000 | 2.4441 | 31.2773 | 0.03185s |
-| hybrid_heuristic | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.04423s |
-| block_lns_strong | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.04423s |
-| block_beam_strong | -0.257286 +/- 0.068740 | 1.0000 | 2.5078 | 31.3262 | 0.04423s |
-| beam_search | -0.270223 +/- 0.088483 | 1.0000 | 2.6111 | 31.5269 | 0.04423s |
+| autoreg_rl_pure, k=256 | -0.250289 +/- 0.064238 | 1.0000 | 2.4441 | 31.2773 | 0.03258s |
+| hybrid_heuristic | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.01193s |
+| block_lns_strong | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.06096s |
+| block_beam_strong | -0.257286 +/- 0.068740 | 1.0000 | 2.5078 | 31.3262 | 0.30348s |
+| beam_search | -0.270223 +/- 0.088483 | 1.0000 | 2.6111 | 31.5269 | 0.02960s |
 
 Against this stronger baseline set, `k=128` has mean margin `0.00029552` and win/tie `81.5625%`; `k=256` has mean margin `0.00088429` and win/tie `89.375%`. The earlier k-sweep without block LNS is still stored in `results/benchmark_real_profile_k_sweep_fast_5seed/k_sweep_report.md`.
 
@@ -70,16 +70,16 @@ Real-profile baseline comparison, `5 seeds x 64 states`, `k=256`, `max_blocks=5`
 
 | method | reward | feasible | latency | PPL | runtime/state |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.250289 +/- 0.064238 | 1.0000 | 2.4441 | 31.2773 | 0.03185s |
-| hybrid_heuristic | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.04423s |
-| block_lns_strong | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.04423s |
-| block_beam_strong | -0.257286 +/- 0.068740 | 1.0000 | 2.5078 | 31.3262 | 0.04423s |
-| beam_search | -0.270223 +/- 0.088483 | 1.0000 | 2.6111 | 31.5269 | 0.04423s |
-| simulated_annealing | -0.353110 +/- 0.153723 | 1.0000 | 3.2136 | 33.2715 | 0.04423s |
-| local_search | -0.353971 +/- 0.155190 | 1.0000 | 3.2201 | 33.2875 | 0.04423s |
-| pdp_aware_greedy | -0.686098 +/- 5.572170 | 0.9969 | 3.4235 | 33.6823 | 0.04423s |
+| autoreg_rl_pure | -0.250289 +/- 0.064238 | 1.0000 | 2.4441 | 31.2773 | 0.03258s |
+| hybrid_heuristic | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.01193s |
+| block_lns_strong | -0.251173 +/- 0.065266 | 1.0000 | 2.4497 | 31.3028 | 0.06096s |
+| block_beam_strong | -0.257286 +/- 0.068740 | 1.0000 | 2.5078 | 31.3262 | 0.30348s |
+| beam_search | -0.270223 +/- 0.088483 | 1.0000 | 2.6111 | 31.5269 | 0.02960s |
+| simulated_annealing | -0.353110 +/- 0.153723 | 1.0000 | 3.2136 | 33.2715 | 0.00623s |
+| local_search | -0.353971 +/- 0.155190 | 1.0000 | 3.2201 | 33.2875 | 0.01396s |
+| pdp_aware_greedy | -0.686098 +/- 5.572170 | 0.9969 | 3.4235 | 33.6823 | 0.00032s |
 
-Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profile benchmark: `0.00088429`. Win/tie rate: `0.8938`.
+Runtime is measured per method, not averaged across the heuristic suite. Mean margin of `autoreg_rl_pure` vs the best non-RL heuristic on the real-profile benchmark: `0.00088429`. Win/tie rate: `0.8938`.
 
 ### Real-Profile k=16 Block Policy
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import math
+import time
 
 import numpy as np
 
@@ -621,6 +622,90 @@ def evaluate_full_benchmark(
     )
     base["hybrid_heuristic"] = (refined_action, refined_eval)
     return base
+
+
+def evaluate_full_benchmark_timed(
+    env: LLMUAVEnv,
+    state: SimState,
+    rng: np.random.Generator,
+    beam_width: int = 24,
+    anneal_steps: int = 256,
+) -> dict[str, tuple[np.ndarray, EvalResult, float]]:
+    """Evaluate the full benchmark while measuring each method separately."""
+
+    heur_cfg = env.cfg.get("heuristics", {})
+    result: dict[str, tuple[np.ndarray, EvalResult, float]] = {}
+
+    def record_action(name: str, fn) -> np.ndarray:
+        started = time.perf_counter()
+        action = fn()
+        ev = env.evaluate(state, action)
+        result[name] = (action, ev, time.perf_counter() - started)
+        return action
+
+    random_action = record_action("random", lambda: random_feasible(env, state, rng))
+    latency_action = record_action("latency_greedy", lambda: latency_greedy(env, state))
+    balanced_action = record_action("block_balanced", lambda: block_balanced(env, state))
+    pdp_action = record_action("pdp_aware_greedy", lambda: pdp_aware_greedy(env, state))
+    simple_actions = [random_action, latency_action, balanced_action, pdp_action]
+
+    started = time.perf_counter()
+    local_action, local_eval = local_search(
+        env,
+        state,
+        rng,
+        initial_actions=simple_actions,
+        max_passes=int(heur_cfg.get("local_search_passes", 2)),
+        random_seed_tries=int(heur_cfg.get("local_search_seed_tries", 64)),
+    )
+    result["local_search"] = (local_action, local_eval, time.perf_counter() - started)
+
+    started = time.perf_counter()
+    beam_action, beam_eval = beam_search(env, state, beam_width=beam_width)
+    result["beam_search"] = (beam_action, beam_eval, time.perf_counter() - started)
+
+    started = time.perf_counter()
+    anneal_action, anneal_eval = simulated_annealing(
+        env,
+        state,
+        rng,
+        initial=local_action,
+        steps=anneal_steps,
+    )
+    result["simulated_annealing"] = (anneal_action, anneal_eval, time.perf_counter() - started)
+
+    max_blocks = int(heur_cfg.get("max_blocks", env.num_uavs))
+    started = time.perf_counter()
+    block_beam_action, block_beam_eval = block_beam_strong(
+        env,
+        state,
+        beam_width=int(heur_cfg.get("block_beam_width", max(beam_width, 256))),
+        max_blocks=max_blocks,
+    )
+    result["block_beam_strong"] = (block_beam_action, block_beam_eval, time.perf_counter() - started)
+
+    started = time.perf_counter()
+    block_lns_action, block_lns_eval = block_lns_strong(
+        env,
+        state,
+        rng,
+        initial_actions=[action for action, _ev, _runtime in result.values()],
+        steps=int(heur_cfg.get("block_lns_steps", 64)),
+        max_blocks=max_blocks,
+    )
+    result["block_lns_strong"] = (block_lns_action, block_lns_eval, time.perf_counter() - started)
+
+    started = time.perf_counter()
+    hybrid_action, hybrid_eval = local_search(
+        env,
+        state,
+        rng,
+        initial_actions=[action for action, _ev, _runtime in result.values()],
+        max_passes=int(heur_cfg.get("local_search_passes", 2)),
+        random_seed_tries=int(heur_cfg.get("local_search_seed_tries", 64)),
+    )
+    result["hybrid_heuristic"] = (hybrid_action, hybrid_eval, time.perf_counter() - started)
+    return result
 
 
 def exhaustive_best(env: LLMUAVEnv, state: SimState, max_states: int = 250000) -> tuple[np.ndarray, EvalResult] | None:

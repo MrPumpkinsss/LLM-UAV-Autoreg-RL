@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 
 from .autoreg_rl_agent import AutoregRLAgent
-from .baselines import evaluate_full_benchmark
+from .baselines import evaluate_full_benchmark_timed
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
 from .llm_profile import build_qwen3_0p6b_profile
@@ -88,15 +88,13 @@ def main() -> None:
 
         for sid in range(args.states):
             state = env.sample_state()
-            started = time.perf_counter()
-            heuristic_methods = evaluate_full_benchmark(
+            heuristic_methods = evaluate_full_benchmark_timed(
                 env,
                 state,
                 rng,
                 beam_width=args.beam_width,
                 anneal_steps=args.anneal_steps,
             )
-            heuristic_runtime = time.perf_counter() - started
 
             started = time.perf_counter()
             selected = agent.select_policy_candidate(
@@ -109,8 +107,8 @@ def main() -> None:
             methods: dict[str, tuple[object, object, float, int]] = {
                 "autoreg_rl_pure": (selected.action, selected.result, rl_runtime, selected.feasible_candidates),
             }
-            for name, (action, ev) in heuristic_methods.items():
-                methods[name] = (action, ev, heuristic_runtime / max(len(heuristic_methods), 1), -1)
+            for name, (action, ev, runtime) in heuristic_methods.items():
+                methods[name] = (action, ev, runtime, -1)
 
             for name, (_action, ev, runtime, feasible_candidates) in methods.items():
                 rows.append(
