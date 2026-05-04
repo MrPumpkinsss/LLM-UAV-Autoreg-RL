@@ -51,6 +51,30 @@ def dtype_from_name(name: str) -> torch.dtype:
     raise ValueError(f"unsupported dtype: {name}")
 
 
+def device_map_from_config(cfg: dict[str, Any], device: torch.device) -> Any:
+    if "device_map" not in cfg or cfg.get("device_map") is None:
+        return {"": str(device)}
+    device_map = cfg["device_map"]
+    if isinstance(device_map, str):
+        return device_map
+    return device_map
+
+
+def model_input_device(model: torch.nn.Module, fallback: torch.device) -> torch.device:
+    if hasattr(model, "hf_device_map"):
+        device_map = getattr(model, "hf_device_map")
+        if isinstance(device_map, dict):
+            for value in device_map.values():
+                if isinstance(value, str) and value not in {"cpu", "disk"}:
+                    return torch.device(value)
+                if isinstance(value, int):
+                    return torch.device(f"cuda:{value}")
+    try:
+        return next(model.parameters()).device
+    except StopIteration:
+        return fallback
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -119,8 +143,9 @@ def compute_ppl(
             max_length=max_length,
             return_attention_mask=True,
         )
-        input_ids = encoded["input_ids"].to(device)
-        attention_mask = encoded["attention_mask"].to(device)
+        input_device = model_input_device(model, device)
+        input_ids = encoded["input_ids"].to(input_device)
+        attention_mask = encoded["attention_mask"].to(input_device)
         if input_ids.shape[1] < 2:
             continue
         logits = model(input_ids=input_ids).logits[:, :-1, :].float()
@@ -152,7 +177,7 @@ def attach_embedding_corruption(model: torch.nn.Module, drop_rate: float, seed: 
 @torch.no_grad()
 def measure_forward_latency(model: torch.nn.Module, tokenizer: Any, text: str, device: torch.device, max_length: int) -> float:
     encoded = tokenizer(text, return_tensors="pt", truncation=True, max_length=max_length)
-    input_ids = encoded["input_ids"].to(device)
+    input_ids = encoded["input_ids"].to(model_input_device(model, device))
     for _ in range(3):
         _ = model(input_ids=input_ids)
     if device.type == "cuda":
@@ -208,8 +233,9 @@ def main() -> None:
         model_id,
         cache_dir=cfg.get("cache_dir"),
         torch_dtype=dtype,
-        device_map={"": str(device)},
+        device_map=device_map_from_config(cfg, device),
         trust_remote_code=True,
+        low_cpu_mem_usage=True,
     )
     model.eval()
 

@@ -1,0 +1,25 @@
+model_id: Qwen/Qwen3.5-9B
+cache_dir: null
+device: cuda
+device_map: auto
+dtype: bfloat16
+trust_remote_code: true
+max_length: 64
+smoke_max_length: 32
+stride: 64
+num_texts: 8
+batch_size: 1
+drop_rates: [0.0, 0.01, 0.03, 0.05]
+corruption_trials: 2
+seed: 123
+output_dir: results/qwen35_9b_real_profile
+dataset:
+  name: wikitext
+  config: wikitext-2-raw-v1
+  split: validation
+  min_chars: 120
+texts:
+  - "Distributed language model inference can be accelerated by placing layers across UAV edge devices."
+  - "Wireless packet loss affects retransmission delay and may degrade intermediate activations."
+  - "The policy selects a feasible model partition under memory, energy, latency, and reliability constraints."
+  - "A calibrated surrogate approximates perplexity changes from corrupted hidden states."

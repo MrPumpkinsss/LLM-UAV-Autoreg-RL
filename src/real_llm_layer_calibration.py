@@ -15,7 +15,14 @@ import yaml
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from .config import ensure_dir
-from .real_llm_profile import compute_ppl, default_texts, dtype_from_name, load_yaml, set_seed
+from .real_llm_profile import (
+    compute_ppl,
+    default_texts,
+    device_map_from_config,
+    dtype_from_name,
+    load_yaml,
+    set_seed,
+)
 
 
 @dataclass
@@ -125,8 +132,9 @@ def main() -> None:
         model_id,
         cache_dir=cfg.get("cache_dir"),
         torch_dtype=dtype,
-        device_map={"": str(device)},
+        device_map=device_map_from_config(cfg, device),
         trust_remote_code=True,
+        low_cpu_mem_usage=True,
     )
     model.eval()
 
