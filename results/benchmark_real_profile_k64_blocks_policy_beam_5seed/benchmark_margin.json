@@ -1,7 +1,0 @@
-{
-  "states": 320,
-  "autoreg_rl_pure_margin_mean": 0.015844744912157222,
-  "autoreg_rl_pure_margin_min": -0.05711513890818673,
-  "autoreg_rl_pure_win_or_tie_rate": 0.8625,
-  "autoreg_rl_pure_strict_win_rate": 0.45625
-}

@@ -1,7 +1,0 @@
-{
-  "num_layers": 7,
-  "num_uavs": 5,
-  "states": 64,
-  "search_space_per_state": 78125,
-  "policy_loaded": true
-}

@@ -154,7 +154,7 @@ The surrogate benchmark is stored in `results/surrogate_benchmark`. It validates
 
 ## Reproduce
 
-Train the current policy:
+Train a clean policy with the current environment and surrogate:
 
 ```powershell
 python -m src.train_autoreg_rl `
@@ -162,7 +162,6 @@ python -m src.train_autoreg_rl `
   --real-dir results/qwen3_0p6b_real_profile `
   --out results/autoreg_rl_layer_calibrated_hard_k256 `
   --device cuda `
-  --init-policy results/autoreg_rl_layer_calibrated_k16_blocks/autoreg_policy_best.pt `
   --episodes 800 `
   --batch-states 32 `
   --candidates 256 `
@@ -173,15 +172,10 @@ python -m src.train_autoreg_rl `
   --projection-mode blocks `
   --max-blocks 5 `
   --candidate-mode beam `
-  --beam-temperature 1.0 `
-  --hard-benchmark-rows results/benchmark_layer_calibrated_k256_stronger_5seed/benchmark_rows.csv `
-  --hard-margin-threshold=-1e-9 `
-  --hard-max-states 96 `
-  --hard-fraction 0.5 `
-  --hard-weight-scale 24 `
-  --hard-min-weight 1 `
-  --hard-max-weight 16
+  --beam-temperature 1.0
 ```
+
+The released checkpoint was additionally fine-tuned with hard-state weighted replay. The replayed hard states are recorded in `results/autoreg_rl_layer_calibrated_hard_k256/hard_states_used.csv`; older intermediate benchmark directories are intentionally not tracked.
 
 Run the recommended `k=256` benchmark:
 
