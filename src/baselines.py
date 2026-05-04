@@ -232,6 +232,312 @@ def beam_search(env: LLMUAVEnv, state: SimState, beam_width: int = 24) -> tuple[
     return best_action, best_eval
 
 
+def _action_blocks(action: np.ndarray) -> list[tuple[int, int, int]]:
+    blocks: list[tuple[int, int, int]] = []
+    start = 0
+    current = int(action[0])
+    for layer in range(1, len(action)):
+        nxt = int(action[layer])
+        if nxt != current:
+            blocks.append((start, layer, current))
+            start = layer
+            current = nxt
+    blocks.append((start, len(action), current))
+    return blocks
+
+
+def _materialize_blocks(blocks: list[tuple[int, int, int]], num_layers: int) -> np.ndarray:
+    action = np.empty(num_layers, dtype=np.int64)
+    for start, end, uav in blocks:
+        action[start:end] = int(uav)
+    return action
+
+
+def _cutset_from_action(action: np.ndarray) -> tuple[int, ...]:
+    return tuple(end for _start, end, _uav in _action_blocks(action)[:-1])
+
+
+def _valid_cutset(cuts: tuple[int, ...], num_layers: int, max_blocks: int) -> tuple[int, ...] | None:
+    cleaned = tuple(sorted({int(c) for c in cuts if 0 < int(c) < num_layers}))
+    if len(cleaned) > max_blocks - 1:
+        return None
+    if any(a >= b for a, b in zip(cleaned, cleaned[1:])):
+        return None
+    return cleaned
+
+
+def _block_proxy_score(
+    env: LLMUAVEnv,
+    state: SimState,
+    start: int,
+    end: int,
+    uav: int,
+    prev_uav: int | None,
+) -> float:
+    reward_cfg = env.cfg["reward"]
+    compute = float(np.sum(env.profile.compute_cycles[start:end] / state.resources.compute_hz[uav]))
+    score = float(reward_cfg["beta"]) * compute / float(reward_cfg["latency_ref_s"])
+    if prev_uav is not None and prev_uav != uav and start > 0:
+        src = int(prev_uav)
+        dst = int(uav)
+        p = float(state.channel.pdp[src, dst])
+        attempts, residual = env._attempts_and_residual(p)
+        snr = max(float(state.channel.snr[src, dst]), 0.0)
+        spectral_eff = max(float(np.log2(1.0 + snr)), 1e-12)
+        comm = float(env.profile.activation_bytes[start - 1]) * 8.0 * attempts / (
+            float(env.cfg["wireless"]["bandwidth_hz"]) * spectral_eff
+        )
+        damage = float(env.profile.importance[start - 1]) * residual
+        score += float(reward_cfg["beta"]) * comm / float(reward_cfg["latency_ref_s"])
+        score += float(reward_cfg["alpha"]) * float(env.profile.ppl_gamma) * damage
+    return score
+
+
+def block_beam_strong(
+    env: LLMUAVEnv,
+    state: SimState,
+    beam_width: int = 256,
+    max_blocks: int | None = None,
+    initial_actions: list[np.ndarray] | None = None,
+    exact_evals: int | None = None,
+) -> tuple[np.ndarray, EvalResult]:
+    """Strong structured search over block cuts and block-to-UAV assignments."""
+
+    if max_blocks is None:
+        max_blocks = env.num_uavs
+    max_blocks = max(1, int(max_blocks))
+    beam_width = max(1, int(beam_width))
+    exact_evals = int(exact_evals or max(512, beam_width * 16))
+
+    seeds = list(initial_actions or [])
+    seeds.extend([block_balanced(env, state), pdp_aware_greedy(env, state), latency_greedy(env, state)])
+    cutsets: list[tuple[int, ...]] = []
+    seen_cuts: set[tuple[int, ...]] = set()
+
+    def add_cutset(cuts: tuple[int, ...]) -> None:
+        valid = _valid_cutset(cuts, env.num_layers, max_blocks)
+        if valid is None or valid in seen_cuts:
+            return
+        seen_cuts.add(valid)
+        cutsets.append(valid)
+
+    for action in seeds:
+        cuts = _cutset_from_action(action)
+        add_cutset(cuts)
+        for idx in range(len(cuts)):
+            for delta in [-4, -3, -2, -1, 1, 2, 3, 4]:
+                shifted = list(cuts)
+                shifted[idx] += delta
+                add_cutset(tuple(shifted))
+
+    for block_count in range(2, max_blocks + 1):
+        uniform = tuple(int(round(x)) for x in np.linspace(0, env.num_layers, block_count + 1)[1:-1])
+        add_cutset(uniform)
+        prefix_mem = env._prefix_mem_bytes
+        total_mem = float(prefix_mem[-1])
+        mem_cuts = []
+        for q in range(1, block_count):
+            target = total_mem * q / block_count
+            mem_cuts.append(int(np.searchsorted(prefix_mem, target, side="left")))
+        add_cutset(tuple(mem_cuts))
+
+    best_action = None
+    best_eval = None
+    for seed in seeds:
+        ev = env.evaluate(state, seed)
+        if ev.feasible and (best_eval is None or ev.reward > best_eval.reward):
+            best_action = seed.copy()
+            best_eval = ev
+        elif best_eval is None:
+            best_action = seed.copy()
+            best_eval = ev
+
+    scored_actions: list[tuple[float, np.ndarray]] = []
+    prefix_mem = env._prefix_mem_bytes
+    reward_cfg = env.cfg["reward"]
+    latency_ref = float(reward_cfg["latency_ref_s"])
+    alpha = float(reward_cfg["alpha"])
+    beta = float(reward_cfg["beta"])
+
+    for cuts in cutsets:
+        points = (0,) + cuts + (env.num_layers,)
+        block_count = len(points) - 1
+        block_mem = np.asarray([prefix_mem[points[i + 1]] - prefix_mem[points[i]] for i in range(block_count)])
+        compute_cost = np.empty((block_count, env.num_uavs), dtype=np.float64)
+        for i in range(block_count):
+            start, end = points[i], points[i + 1]
+            cycles = float(np.sum(env.profile.compute_cycles[start:end]))
+            compute_cost[i] = beta * (cycles / state.resources.compute_hz) / latency_ref
+
+        for assignment in itertools.product(range(env.num_uavs), repeat=block_count):
+            mem_used = np.zeros(env.num_uavs, dtype=np.float64)
+            feasible_mem = True
+            for idx, uav in enumerate(assignment):
+                mem_used[uav] += block_mem[idx]
+                if mem_used[uav] > state.resources.mem_bytes[uav] + 1e-9:
+                    feasible_mem = False
+                    break
+            if not feasible_mem:
+                continue
+
+            proxy = 0.0
+            for idx, uav in enumerate(assignment):
+                proxy += float(compute_cost[idx, uav])
+                if idx == 0:
+                    continue
+                prev_uav = int(assignment[idx - 1])
+                if prev_uav == int(uav):
+                    continue
+                boundary = points[idx]
+                p = float(state.channel.pdp[prev_uav, uav])
+                attempts, residual = env._attempts_and_residual(p)
+                snr = max(float(state.channel.snr[prev_uav, uav]), 0.0)
+                spectral_eff = max(float(np.log2(1.0 + snr)), 1e-12)
+                comm = float(env.profile.activation_bytes[boundary - 1]) * 8.0 * attempts / (
+                    float(env.cfg["wireless"]["bandwidth_hz"]) * spectral_eff
+                )
+                damage = float(env.profile.importance[boundary - 1]) * residual
+                proxy += beta * comm / latency_ref
+                proxy += alpha * float(env.profile.ppl_gamma) * damage
+
+            action = np.empty(env.num_layers, dtype=np.int64)
+            for idx, uav in enumerate(assignment):
+                action[points[idx] : points[idx + 1]] = int(uav)
+            scored_actions.append((proxy, action))
+
+    if not scored_actions:
+        assert best_action is not None and best_eval is not None
+        return best_action, best_eval
+
+    scored_actions.sort(key=lambda item: item[0])
+    seen: set[tuple[int, ...]] = set()
+    evaluated = 0
+    for _score, action in scored_actions:
+        key = tuple(int(x) for x in action.tolist())
+        if key in seen:
+            continue
+        seen.add(key)
+        ev = env.evaluate(state, action)
+        evaluated += 1
+        if ev.feasible and (best_eval is None or ev.reward > best_eval.reward):
+            best_action = action.copy()
+            best_eval = ev
+        elif best_eval is None:
+            best_action = action.copy()
+            best_eval = ev
+        if evaluated >= exact_evals:
+            break
+
+    assert best_action is not None and best_eval is not None
+    return best_action, best_eval
+
+
+def block_lns_strong(
+    env: LLMUAVEnv,
+    state: SimState,
+    rng: np.random.Generator,
+    initial_actions: list[np.ndarray] | None = None,
+    steps: int = 64,
+    max_blocks: int | None = None,
+) -> tuple[np.ndarray, EvalResult]:
+    """Block-level large-neighborhood search around strong structured seeds."""
+
+    if max_blocks is None:
+        max_blocks = env.num_uavs
+    seeds = list(initial_actions or [])
+    seeds.extend([block_balanced(env, state), pdp_aware_greedy(env, state), latency_greedy(env, state)])
+    best_action = None
+    best_eval = None
+    for seed in seeds:
+        action = env.project_blocks_fast(seed, state, max_blocks=max_blocks)
+        ev = env.evaluate(state, action)
+        if ev.feasible and (best_eval is None or ev.reward > best_eval.reward):
+            best_action = action.copy()
+            best_eval = ev
+        elif best_eval is None:
+            best_action = action.copy()
+            best_eval = ev
+
+    assert best_action is not None and best_eval is not None
+    current_action = best_action.copy()
+    current_eval = best_eval
+
+    for step in range(max(0, int(steps))):
+        blocks = _action_blocks(current_action)
+        candidates: list[np.ndarray] = []
+
+        # Destroy/repair by reassigning one or two existing blocks.
+        block_indices = list(range(len(blocks)))
+        rng.shuffle(block_indices)
+        for idx in block_indices[: max(1, min(len(blocks), 3))]:
+            start, end, old_uav = blocks[idx]
+            for uav in range(env.num_uavs):
+                if uav == old_uav:
+                    continue
+                trial_blocks = list(blocks)
+                trial_blocks[idx] = (start, end, int(uav))
+                candidates.append(_materialize_blocks(trial_blocks, env.num_layers))
+
+        if len(blocks) >= 2:
+            idx = int(rng.integers(0, len(blocks) - 1))
+            first = blocks[idx]
+            second = blocks[idx + 1]
+            for uav in range(env.num_uavs):
+                trial_blocks = list(blocks)
+                trial_blocks[idx : idx + 2] = [(first[0], second[1], int(uav))]
+                candidates.append(_materialize_blocks(trial_blocks, env.num_layers))
+
+            boundary = first[1]
+            for delta in [-3, -2, -1, 1, 2, 3]:
+                new_boundary = boundary + delta
+                if new_boundary <= first[0] or new_boundary >= second[1]:
+                    continue
+                trial_blocks = list(blocks)
+                trial_blocks[idx] = (first[0], new_boundary, first[2])
+                trial_blocks[idx + 1] = (new_boundary, second[1], second[2])
+                candidates.append(_materialize_blocks(trial_blocks, env.num_layers))
+
+        # Random partial reset preserving contiguity.
+        if len(blocks) > 1:
+            lo = int(rng.integers(0, len(blocks)))
+            hi = int(rng.integers(lo + 1, len(blocks) + 1))
+            start = blocks[lo][0]
+            end = blocks[hi - 1][1]
+            for uav in rng.permutation(env.num_uavs)[: min(env.num_uavs, 3)]:
+                trial = current_action.copy()
+                trial[start:end] = int(uav)
+                candidates.append(trial)
+
+        best_trial_action = current_action
+        best_trial_eval = current_eval
+        seen: set[tuple[int, ...]] = set()
+        for candidate in candidates:
+            candidate = env.project_blocks_fast(candidate, state, max_blocks=max_blocks)
+            key = tuple(int(x) for x in candidate.tolist())
+            if key in seen:
+                continue
+            seen.add(key)
+            ev = env.evaluate(state, candidate)
+            if ev.feasible and ev.reward > best_trial_eval.reward + 1e-9:
+                best_trial_action = candidate
+                best_trial_eval = ev
+
+        if best_trial_eval.reward > current_eval.reward + 1e-9:
+            current_action = best_trial_action.copy()
+            current_eval = best_trial_eval
+            if current_eval.reward > best_eval.reward + 1e-9:
+                best_action = current_action.copy()
+                best_eval = current_eval
+        elif step % 8 == 7 and candidates:
+            candidate = env.project_blocks_fast(candidates[int(rng.integers(0, len(candidates)))], state, max_blocks=max_blocks)
+            ev = env.evaluate(state, candidate)
+            if ev.feasible:
+                current_action = candidate
+                current_eval = ev
+
+    return best_action, best_eval
+
+
 def simulated_annealing(
     env: LLMUAVEnv,
     state: SimState,
@@ -286,6 +592,24 @@ def evaluate_full_benchmark(
     )
     base["beam_search"] = (beam_action, beam_eval)
     base["simulated_annealing"] = (anneal_action, anneal_eval)
+    heur_cfg = env.cfg.get("heuristics", {})
+    max_blocks = int(heur_cfg.get("max_blocks", env.num_uavs))
+    block_beam_action, block_beam_eval = block_beam_strong(
+        env,
+        state,
+        beam_width=int(heur_cfg.get("block_beam_width", max(beam_width, 256))),
+        max_blocks=max_blocks,
+    )
+    base["block_beam_strong"] = (block_beam_action, block_beam_eval)
+    block_lns_action, block_lns_eval = block_lns_strong(
+        env,
+        state,
+        rng,
+        initial_actions=[a for a, _ in base.values()],
+        steps=int(heur_cfg.get("block_lns_steps", 64)),
+        max_blocks=max_blocks,
+    )
+    base["block_lns_strong"] = (block_lns_action, block_lns_eval)
     # Local search from the new strong candidates usually dominates raw beam/SA.
     refined_action, refined_eval = local_search(
         env,
