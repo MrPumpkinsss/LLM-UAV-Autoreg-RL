@@ -66,11 +66,25 @@ results/**
 !results/autoreg_rl_qwen35_4b_v2_hard/summary.json
 !results/autoreg_rl_qwen35_4b_v2_hard/train_log.csv
 
+!results/autoreg_rl_qwen35_4b_v2_teacher/
+!results/autoreg_rl_qwen35_4b_v2_teacher/autoreg_policy_best.pt
+!results/autoreg_rl_qwen35_4b_v2_teacher/config_used.json
+!results/autoreg_rl_qwen35_4b_v2_teacher/eval_log.csv
+!results/autoreg_rl_qwen35_4b_v2_teacher/summary.json
+!results/autoreg_rl_qwen35_4b_v2_teacher/teacher_cache.npz
+!results/autoreg_rl_qwen35_4b_v2_teacher/train_log.csv
+
 !results/benchmark_qwen35_4b_v2_hard_5seed/
 !results/benchmark_qwen35_4b_v2_hard_5seed/benchmark_margin.json
 !results/benchmark_qwen35_4b_v2_hard_5seed/benchmark_report.md
 !results/benchmark_qwen35_4b_v2_hard_5seed/benchmark_rows.csv
 !results/benchmark_qwen35_4b_v2_hard_5seed/benchmark_summary.csv
+
+!results/benchmark_qwen35_4b_v2_teacher_5seed/
+!results/benchmark_qwen35_4b_v2_teacher_5seed/benchmark_margin.json
+!results/benchmark_qwen35_4b_v2_teacher_5seed/benchmark_report.md
+!results/benchmark_qwen35_4b_v2_teacher_5seed/benchmark_rows.csv
+!results/benchmark_qwen35_4b_v2_teacher_5seed/benchmark_summary.csv
 
 !results/real_action_ppl_validation_layer_calibrated_retrained/
 !results/real_action_ppl_validation_layer_calibrated_retrained/real_action_ppl_metrics.json
