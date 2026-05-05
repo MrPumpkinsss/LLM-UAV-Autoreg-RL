@@ -218,17 +218,29 @@ Gemma-4-E4B-it deploys, but the current text-only PPL evaluation gives clean PPL
 
 ## Visuals
 
-![Training curves](results/visuals_layer_calibrated_hard_k256/training_curves.png)
+### Qwen3-0.6B Main Result
 
-![Benchmark reward comparison](results/visuals_layer_calibrated_hard_k256/benchmark_reward_bar.png)
+![0.6B training curves](results/visuals_layer_calibrated_hard_k256/training_curves.png)
 
-![Benchmark feasibility comparison](results/visuals_layer_calibrated_hard_k256/benchmark_feasibility_bar.png)
+![0.6B benchmark reward comparison](results/visuals_layer_calibrated_hard_k256/benchmark_reward_bar.png)
 
-![RL margin histogram](results/visuals_layer_calibrated_hard_k256/margin_histogram.png)
+![0.6B RL margin histogram](results/visuals_layer_calibrated_hard_k256/margin_histogram.png)
 
-![RL margin by seed](results/visuals_layer_calibrated_hard_k256/margin_by_seed.png)
+### Qwen3.5-4B Teacher-Big
 
-![Autoreg-RL vs best heuristic](results/visuals_layer_calibrated_hard_k256/autoreg_vs_heuristic_scatter.png)
+![Training curves](results/visuals_qwen35_teacher_big/training_curves.png)
+
+![Benchmark reward comparison](results/visuals_qwen35_teacher_big/benchmark_reward_bar.png)
+
+![Benchmark feasibility comparison](results/visuals_qwen35_teacher_big/benchmark_feasibility_bar.png)
+
+![RL margin histogram](results/visuals_qwen35_teacher_big/margin_histogram.png)
+
+![RL margin by seed](results/visuals_qwen35_teacher_big/margin_by_seed.png)
+
+![Autoreg-RL vs best heuristic](results/visuals_qwen35_teacher_big/autoreg_vs_heuristic_scatter.png)
+
+[Visual summary](results/visuals_qwen35_teacher_big/visual_summary.md)
 
 ![Surrogate PPL fit](results/surrogate_benchmark/surrogate_ppl_fit.png)
 
@@ -363,6 +375,7 @@ python -m src.make_visuals `
 |   |-- benchmark_qwen35_4b_v2_hard_5seed/           # v2 Qwen3.5-4B benchmark
 |   |-- benchmark_qwen35_4b_v2_teacher_5seed/        # teacher-assisted v2 Qwen3.5-4B benchmark
 |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/    # expanded teacher-assisted Qwen3.5-4B benchmark
+|   |-- visuals_qwen35_teacher_big/                  # expanded Qwen3.5-4B figures
 |   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   `-- surrogate_benchmark/
 |-- requirements.txt

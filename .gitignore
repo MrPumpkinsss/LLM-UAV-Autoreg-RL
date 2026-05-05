@@ -37,6 +37,10 @@ results/**
 !results/visuals_layer_calibrated_hard_k256/*.png
 !results/visuals_layer_calibrated_hard_k256/visual_summary.md
 
+!results/visuals_qwen35_teacher_big/
+!results/visuals_qwen35_teacher_big/*.png
+!results/visuals_qwen35_teacher_big/visual_summary.md
+
 !results/qwen3_0p6b_real_profile/
 !results/qwen3_0p6b_real_profile/layer_params.npy
 !results/qwen3_0p6b_real_profile/layer_ppl_curve.csv
