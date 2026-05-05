@@ -4,6 +4,8 @@ Clean experiment repository for UAV-enabled distributed LLM submodel deployment.
 
 The current method is a pure autoregressive RL policy for assigning Qwen3-0.6B layers to `N=5` UAVs. At inference time, `autoreg_rl_pure` samples candidates only from the learned policy and applies generic feasibility projection. Strong heuristics are used only as benchmark baselines; their actions are not inserted into the RL candidate pool.
 
+The main reproducible result is the Qwen3-0.6B experiment below. This branch also contains exploratory larger-model artifacts for `Qwen/Qwen3.5-4B` and `google/gemma-4-E4B-it`; the original 0.6B state is preserved as tag `v0.6b-stable`.
+
 ## Current Result
 
 Latest benchmark: `5 seeds x 64 states = 320 states`, `28` LLM layers, real Qwen3-0.6B layer-calibrated profile, CUDA inference.
@@ -169,6 +171,43 @@ Per method:
 
 Random high-transition actions are kept in the report as out-of-distribution stress cases. They can exceed the calibrated drop range and produce very large exponential extrapolation errors, so the main validation metric is the non-random competitive subset.
 
+## Larger Model Benchmark
+
+These results are experimental and are stored in `docs/qwen35_gemma_benchmark.md`. They were run on branch `qwen35-gemma-explore`; the Qwen3-0.6B result above remains the main result.
+
+Deployment/profile status:
+
+| model | status | real profile | notes |
+|---|---|---|---|
+| `Qwen/Qwen3.5-4B` | loads and runs a short forward pass | usable | 8.68 GiB weights; about 6.73 GiB VRAM remained after load |
+| `google/gemma-4-E4B-it` | loads and runs a short forward pass | not reliable yet | 14.89 GiB weights; Transformers used CPU offload for some parameters |
+
+Qwen3.5-4B layer calibration:
+
+| metric | value |
+|---|---:|
+| layers | 32 |
+| clean PPL | 12.508157 |
+| forward latency | 167.9 ms |
+| drop rates | 0.0, 0.01, 0.03, 0.05 |
+| fitted gamma sum | 196.068559 |
+| fitted R2 | 0.856720 |
+| RMSE log-ratio | 0.028426 |
+
+Qwen3.5-4B benchmark setting: `5` seeds, `16` states per seed, `80` total states, `k=256` RL candidates, beam width `32`, and `128` annealing steps. The checkpoint is `results/autoreg_rl_qwen35_4b_hard/autoreg_policy_best.pt`, and the benchmark artifact is `results/benchmark_qwen35_4b_hard_5seed`.
+
+| method | reward | feasible | latency | PPL | runtime_s |
+|---|---:|---:|---:|---:|---:|
+| block_lns_strong | -0.161487 | 1.0000 | 4.6116 | 11.8245 | 0.05828 |
+| hybrid_heuristic | -0.161487 | 1.0000 | 4.6116 | 11.8245 | 0.01274 |
+| block_beam_strong | -0.163243 | 1.0000 | 4.6255 | 11.8619 | 0.47319 |
+| beam_search | -0.230150 | 1.0000 | 4.7512 | 13.6262 | 0.03778 |
+| autoreg_rl_pure | -0.421316 | 1.0000 | 5.1026 | 18.6736 | 0.04015 |
+
+RL vs best non-RL baseline on Qwen3.5-4B: mean margin `-0.259829`, min margin `-5.055748`, win/tie rate `0.1250`, strict win rate `0.0000`. The RL policy reaches full feasibility but does not beat the strongest block heuristics under the current 4B resource setting, so this should be treated as a larger-model stress test rather than the main success claim.
+
+Gemma-4-E4B-it deploys, but the current text-only PPL evaluation gives clean PPL `32287.1` and a negative embedding surrogate R2. That means the current tokenizer/prompt/PPL pipeline is not valid enough for simulator or RL comparison; Gemma benchmark results should wait until the Gemma-specific PPL evaluation is fixed.
+
 ## Visuals
 
 ![Training curves](results/visuals_layer_calibrated_hard_k256/training_curves.png)
@@ -279,8 +318,14 @@ python -m src.make_visuals `
 ```text
 .
 |-- configs/
-|   |-- qwen3_calibrated.yaml        # LLM-UAV simulator config, reward weights, constraints, Qwen3 profile
-|   `-- real_llm.yaml                # real Qwen3-0.6B loading/PPL validation config
+|   |-- qwen3_calibrated.yaml        # main Qwen3-0.6B simulator config
+|   |-- real_llm.yaml                # real Qwen3-0.6B loading/PPL validation config
+|   |-- qwen35_4b_calibrated.yaml    # experimental Qwen3.5-4B simulator config
+|   |-- real_llm_qwen35_4b.yaml      # Qwen3.5-4B deployment/profile config
+|   `-- real_llm_gemma4b.yaml        # Gemma-4-E4B-it deployment/profile config
+|-- docs/
+|   |-- llm_deployment_exploration.md
+|   `-- qwen35_gemma_benchmark.md
 |-- src/
 |   |-- env.py                       # LLM-UAV environment, hard constraints, reward, KKT bandwidth allocation
 |   |-- channel.py                   # wireless channel and packet-drop modeling
@@ -299,6 +344,10 @@ python -m src.make_visuals `
 |   |-- benchmark_layer_calibrated_hard_k256_5seed/  # main 5-seed benchmark
 |   |-- visuals_layer_calibrated_hard_k256/          # figures embedded in this README
 |   |-- qwen3_0p6b_real_profile/                     # real Qwen3 calibration artifacts
+|   |-- qwen35_4b_real_profile/                      # experimental Qwen3.5-4B calibration artifacts
+|   |-- gemma4_e4b_it_real_profile/                  # Gemma deployment/profile artifacts
+|   |-- autoreg_rl_qwen35_4b_hard/                   # experimental Qwen3.5-4B checkpoint
+|   |-- benchmark_qwen35_4b_hard_5seed/              # experimental Qwen3.5-4B benchmark
 |   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   `-- surrogate_benchmark/
 |-- requirements.txt
