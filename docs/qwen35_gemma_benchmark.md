@@ -59,40 +59,49 @@ Benchmark setting:
 
 | item | value |
 |---|---:|
-| seeds | 101, 102, 103, 104, 105 |
+| seeds | 61, 62, 63, 64, 65 |
 | states per seed | 16 |
 | total states | 80 |
 | RL candidates | 256 |
 | strong baseline beam width | 32 |
 | anneal steps | 128 |
 
+The recommended checkpoint is `results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt`. It warm-starts from the previous teacher checkpoint, uses `1000` teacher states, `1000` teacher replay updates, and `2000` RL episodes. A later hard-state replay attempt was evaluated but is not recommended because it reduced the final benchmark win/tie rate.
+
 Results:
 
 | method | reward mean | reward std | feasible | latency | PPL | runtime s |
 |---|---:|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.148574 | 0.047934 | 1.0000 | 4.4422 | 12.8629 | 0.03646 |
-| hybrid_heuristic | -0.148590 | 0.050451 | 1.0000 | 4.4540 | 12.8524 | 0.01295 |
-| block_lns_strong | -0.148590 | 0.050451 | 1.0000 | 4.4540 | 12.8524 | 0.05810 |
-| block_beam_strong | -0.149528 | 0.050791 | 1.0000 | 4.4621 | 12.8739 | 0.65519 |
-| beam_search | -0.230918 | 0.246015 | 1.0000 | 4.8283 | 15.0544 | 0.06814 |
-| simulated_annealing | -1.791802 | 4.083456 | 1.0000 | 5.2076 | 63.0454 | 0.00629 |
-| local_search | -1.792286 | 4.083321 | 1.0000 | 5.2111 | 63.0573 | 0.01547 |
-| pdp_aware_greedy | -2.307821 | 4.561740 | 1.0000 | 5.1288 | 79.1008 | 0.00067 |
-| random | -100.000000 | 0.000000 | 0.0000 | 183.0535 | 2.8090e18 | 0.02313 |
-| latency_greedy | -15793.649937 | 109257.3 | 0.9750 | 9.8148 | 9.0238e6 | 0.00007 |
-| block_balanced | -189260.669975 | 1583938.8 | 0.9750 | 17.4562 | 6.4090e6 | 0.00009 |
+| autoreg_rl_pure | -0.146974 | 0.047001 | 1.0000 | 4.4509 | 12.8052 | 0.05259 |
+| hybrid_heuristic | -0.147090 | 0.045727 | 1.0000 | 4.4668 | 12.7940 | 0.01355 |
+| block_lns_strong | -0.147090 | 0.045727 | 1.0000 | 4.4668 | 12.7940 | 0.06099 |
+| block_beam_strong | -0.148220 | 0.047234 | 1.0000 | 4.4904 | 12.8071 | 0.66905 |
+| simulated_annealing | -0.847906 | 2.140493 | 1.0000 | 5.1566 | 33.8587 | 0.00677 |
+| local_search | -0.849439 | 2.140961 | 1.0000 | 5.1624 | 33.9007 | 0.01624 |
+| beam_search | -3.568186 | 28.094510 | 1.0000 | 4.7848 | 118.4562 | 0.06955 |
+| random | -100.000000 | 0.000000 | 0.0000 | 188.7475 | 1.7558e20 | 0.02350 |
+| pdp_aware_greedy | -176.206820 | 1545.160373 | 1.0000 | 5.1121 | 5465.0899 | 0.00066 |
+| latency_greedy | -1589.308559 | 6804.913171 | 0.9875 | 10.5849 | 73305.6639 | 0.00007 |
+| block_balanced | -87503.764450 | 740761.087968 | 0.9375 | 19.5737 | 1.1719e7 | 0.00008 |
 
 RL margin vs best non-RL baseline:
 
 | metric | value |
 |---|---:|
-| mean margin | +0.000016 |
-| min margin | -0.049079 |
-| win/tie rate | 0.5125 |
+| mean margin | +0.000116 |
+| min margin | -0.014858 |
+| win/tie rate | 0.8250 |
 | strict win rate | 0.1250 |
+
+Hard-state replay check:
+
+| variant | mean margin | min margin | win/tie |
+|---|---:|---:|---:|
+| teacher-big checkpoint | +0.000116 | -0.014858 | 0.8250 |
+| teacher-big + hard replay | -0.000134 | -0.015341 | 0.7750 |
 
 ## Interpretation
 
-Qwen3.5-4B is deployable on this desktop for profiling and simulator experiments. The v2 surrogate is much stronger than the first quick calibration. Teacher-assisted v2 training uses strong baseline actions only as supervised replay during training; at benchmark time, `autoreg_rl_pure` still samples only from the learned policy. This reduces the margin from the first quick benchmark's `-0.259829` to a slight positive mean margin of `+0.000016`. The gain is small and should be reported as a near-tie/slight win over the strongest heuristic, not a large separation.
+Qwen3.5-4B is deployable on this desktop for profiling and simulator experiments. The v2 surrogate is much stronger than the first quick calibration. Expanded teacher-assisted v2 training uses strong baseline actions only as supervised replay during training; at benchmark time, `autoreg_rl_pure` still samples only from the learned policy. This improves the earlier teacher run from `51.25%` win/tie to `82.50%` win/tie against the best non-RL baseline on the 80-state benchmark.
 
 Gemma-4-E4B-it can be loaded, but the current text-only PPL evaluation is not valid enough for RL benchmarking. The next step for Gemma would be to fix model-specific prompting/tokenization and verify a reasonable clean PPL before running layer-wise calibration.

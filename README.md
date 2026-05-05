@@ -198,19 +198,21 @@ Qwen3.5-4B high-quality layer calibration:
 
 The earlier quick calibration used only `16` texts, `64` tokens, and `1` corruption trial; its layer R2 was `0.856720`. The v2 profile in `results/qwen35_4b_real_profile_v2` is the recommended 4B profile. An optional MLP surrogate is also trained from the same calibration curve (`R2 = 0.999725`, RMSE log-ratio `0.001998`), but the benchmark keeps the linear layer-gamma surrogate because it is more interpretable and monotonic outside the calibrated drop range.
 
-Qwen3.5-4B benchmark setting: `5` seeds, `16` states per seed, `80` total states, `k=256` RL candidates, beam width `32`, and `128` annealing steps. The checkpoint is `results/autoreg_rl_qwen35_4b_v2_teacher/autoreg_policy_best.pt`, and the benchmark artifact is `results/benchmark_qwen35_4b_v2_teacher_5seed`.
+Qwen3.5-4B benchmark setting: `5` seeds, `16` states per seed, `80` total states, `k=256` RL candidates, beam width `32`, and `128` annealing steps. The recommended checkpoint is `results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt`, and the benchmark artifact is `results/benchmark_qwen35_4b_v2_teacher_big_5seed`.
 
-The 4B policy uses teacher-assisted training: strong baselines generate supervised replay actions before RL fine-tuning. At benchmark time, `autoreg_rl_pure` still samples candidates only from the learned policy and projection; teacher or heuristic actions are not inserted into the RL candidate pool.
+The 4B policy uses expanded teacher-assisted training: it warm-starts from the previous teacher checkpoint, collects `1000` teacher states, runs `1000` teacher replay updates, and then trains for `2000` RL episodes. At benchmark time, `autoreg_rl_pure` still samples candidates only from the learned policy and projection; teacher or heuristic actions are not inserted into the RL candidate pool.
 
 | method | reward | feasible | latency | PPL | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.148574 | 1.0000 | 4.4422 | 12.8629 | 0.03646 |
-| hybrid_heuristic | -0.148590 | 1.0000 | 4.4540 | 12.8524 | 0.01295 |
-| block_lns_strong | -0.148590 | 1.0000 | 4.4540 | 12.8524 | 0.05810 |
-| block_beam_strong | -0.149528 | 1.0000 | 4.4621 | 12.8739 | 0.65519 |
-| beam_search | -0.230918 | 1.0000 | 4.8283 | 15.0544 | 0.06814 |
+| autoreg_rl_pure | -0.146974 | 1.0000 | 4.4509 | 12.8052 | 0.05259 |
+| hybrid_heuristic | -0.147090 | 1.0000 | 4.4668 | 12.7940 | 0.01355 |
+| block_lns_strong | -0.147090 | 1.0000 | 4.4668 | 12.7940 | 0.06099 |
+| block_beam_strong | -0.148220 | 1.0000 | 4.4904 | 12.8071 | 0.66905 |
+| simulated_annealing | -0.847906 | 1.0000 | 5.1566 | 33.8587 | 0.00677 |
+| local_search | -0.849439 | 1.0000 | 5.1624 | 33.9007 | 0.01624 |
+| beam_search | -3.568186 | 1.0000 | 4.7848 | 118.4562 | 0.06955 |
 
-RL vs best non-RL baseline on Qwen3.5-4B v2 teacher: mean margin `+0.000016`, min margin `-0.049079`, win/tie rate `0.5125`, strict win rate `0.1250`. This is a very small mean win, so it should be reported as near-tie/slight win rather than a large improvement.
+RL vs best non-RL baseline on Qwen3.5-4B v2 teacher-big: mean margin `+0.000116`, min margin `-0.014858`, win/tie rate `0.8250`, strict win rate `0.1250`. A follow-up hard-state replay run was also tested, but it reduced the mean margin to `-0.000134` and win/tie rate to `0.7750`, so the teacher-big checkpoint is the recommended 4B checkpoint.
 
 Gemma-4-E4B-it deploys, but the current text-only PPL evaluation gives clean PPL `32287.1` and a negative embedding surrogate R2. That means the current tokenizer/prompt/PPL pipeline is not valid enough for simulator or RL comparison; Gemma benchmark results should wait until the Gemma-specific PPL evaluation is fixed.
 
@@ -356,9 +358,11 @@ python -m src.make_visuals `
 |   |-- autoreg_rl_qwen35_4b_hard/                   # experimental Qwen3.5-4B checkpoint
 |   |-- autoreg_rl_qwen35_4b_v2_hard/                # v2 Qwen3.5-4B checkpoint
 |   |-- autoreg_rl_qwen35_4b_v2_teacher/             # teacher-assisted v2 Qwen3.5-4B checkpoint
+|   |-- autoreg_rl_qwen35_4b_v2_teacher_big/         # expanded teacher-assisted Qwen3.5-4B checkpoint
 |   |-- benchmark_qwen35_4b_hard_5seed/              # experimental Qwen3.5-4B benchmark
 |   |-- benchmark_qwen35_4b_v2_hard_5seed/           # v2 Qwen3.5-4B benchmark
 |   |-- benchmark_qwen35_4b_v2_teacher_5seed/        # teacher-assisted v2 Qwen3.5-4B benchmark
+|   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/    # expanded teacher-assisted Qwen3.5-4B benchmark
 |   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   `-- surrogate_benchmark/
 |-- requirements.txt
