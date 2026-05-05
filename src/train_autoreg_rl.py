@@ -493,7 +493,9 @@ def main() -> None:
     cfg["uav"]["num_uavs"] = args.num_uavs
     if args.num_layers is not None:
         cfg["profile"]["num_layers"] = args.num_layers
-    real_dir = Path(args.real_dir) if args.real_dir else None
+    real_dir = Path(args.real_dir) if args.real_dir else (
+        Path(str(cfg.get("profile", {}).get("real_profile_dir"))) if cfg.get("profile", {}).get("real_profile_dir") else None
+    )
     if real_dir is not None:
         cfg.setdefault("profile", {})["real_profile_dir"] = real_dir.as_posix()
     ar_cfg = cfg.setdefault("ar_rl", {})

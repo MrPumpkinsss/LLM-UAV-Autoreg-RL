@@ -13,7 +13,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark_timed, random_feasible
-from .benchmark_real_profile import build_real_profile, set_seed
+from .benchmark_real_profile import build_real_profile, resolve_real_dir, set_seed
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv, SimState
 from .real_llm_layer_calibration import attach_layer_corruption
@@ -138,7 +138,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate surrogate PPL on real deployment actions.")
     parser.add_argument("--config", default="configs/qwen3_calibrated.yaml")
     parser.add_argument("--llm-config", default="configs/real_llm.yaml")
-    parser.add_argument("--real-dir", default="results/qwen3_0p6b_real_profile")
+    parser.add_argument("--real-dir", default=None)
     parser.add_argument("--policy", default="results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt")
     parser.add_argument("--states", type=int, default=12)
     parser.add_argument("--seed", type=int, default=777)
@@ -175,7 +175,7 @@ def main() -> None:
 
     set_seed(int(args.seed))
     rng = np.random.default_rng(int(args.seed))
-    profile = build_real_profile(cfg, Path(args.real_dir), rng)
+    profile = build_real_profile(cfg, resolve_real_dir(cfg, args.real_dir), rng)
     env = LLMUAVEnv(cfg, profile, rng)
     agent = AutoregRLAgent(env, cfg, args.device, rng)
     state_dict = torch.load(Path(args.policy), map_location=agent.device)

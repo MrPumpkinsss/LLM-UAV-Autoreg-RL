@@ -39,10 +39,19 @@ def build_real_profile(cfg: dict, real_dir: Path, rng: np.random.Generator) -> L
     return build_qwen3_0p6b_real_profile(cfg["profile"], real_dir, rng)
 
 
+def resolve_real_dir(cfg: dict, cli_real_dir: str | None) -> Path:
+    if cli_real_dir:
+        return Path(cli_real_dir)
+    configured = cfg.get("profile", {}).get("real_profile_dir")
+    if configured:
+        return Path(str(configured))
+    return Path("results/qwen3_0p6b_real_profile")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/qwen3_calibrated.yaml")
-    parser.add_argument("--real-dir", default="results/qwen3_0p6b_real_profile")
+    parser.add_argument("--real-dir", default=None)
     parser.add_argument("--policy", default="results/autoreg_rl_teacher/autoreg_policy_best.pt")
     parser.add_argument("--states", type=int, default=64)
     parser.add_argument("--seeds", default="91,92,93")
@@ -85,7 +94,7 @@ def main() -> None:
         seed = int(seed_text.strip())
         set_seed(seed)
         rng = np.random.default_rng(seed)
-        profile = build_real_profile(cfg, Path(args.real_dir), rng)
+        profile = build_real_profile(cfg, resolve_real_dir(cfg, args.real_dir), rng)
         env = LLMUAVEnv(cfg, profile, rng)
         agent = AutoregRLAgent(env, cfg, args.device, rng)
         state_dict = torch.load(Path(args.policy), map_location=agent.device)
