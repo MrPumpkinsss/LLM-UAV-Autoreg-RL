@@ -166,7 +166,7 @@ def main() -> None:
     (out_dir / "benchmark_margin.json").write_text(json.dumps(margin_summary, indent=2), encoding="utf-8")
 
     lines = [
-        "# Real Qwen3-0.6B Profile Benchmark",
+        f"# Real {profile.model_name} Profile Benchmark",
         "",
         f"States: `{margin_summary['states']}`",
         f"Real profile directory: `{Path(args.real_dir).as_posix()}`",

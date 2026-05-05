@@ -11,6 +11,7 @@ profile:
   sequence_length: 64
   ppl_ref: 12.508157074727082
   ppl_gamma: 196.06855947881232
+  surrogate_mode: linear
   layer_compute_jitter: 0.12
   activation_jitter: 0.08
 uav:

@@ -182,29 +182,33 @@ Deployment/profile status:
 | `Qwen/Qwen3.5-4B` | loads and runs a short forward pass | usable | 8.68 GiB weights; about 6.73 GiB VRAM remained after load |
 | `google/gemma-4-E4B-it` | loads and runs a short forward pass | not reliable yet | 14.89 GiB weights; Transformers used CPU offload for some parameters |
 
-Qwen3.5-4B layer calibration:
+Qwen3.5-4B high-quality layer calibration:
 
 | metric | value |
 |---|---:|
 | layers | 32 |
-| clean PPL | 12.508157 |
-| forward latency | 167.9 ms |
-| drop rates | 0.0, 0.01, 0.03, 0.05 |
-| fitted gamma sum | 196.068559 |
-| fitted R2 | 0.856720 |
-| RMSE log-ratio | 0.028426 |
+| clean PPL | 12.388740 |
+| sample count | 64 |
+| max length | 128 |
+| corruption trials | 3 |
+| drop rates | 0.0, 0.005, 0.01, 0.02, 0.03, 0.05 |
+| fitted gamma sum | 206.094048 |
+| fitted R2 | 0.995787 |
+| RMSE log-ratio | 0.006596 |
 
-Qwen3.5-4B benchmark setting: `5` seeds, `16` states per seed, `80` total states, `k=256` RL candidates, beam width `32`, and `128` annealing steps. The checkpoint is `results/autoreg_rl_qwen35_4b_hard/autoreg_policy_best.pt`, and the benchmark artifact is `results/benchmark_qwen35_4b_hard_5seed`.
+The earlier quick calibration used only `16` texts, `64` tokens, and `1` corruption trial; its layer R2 was `0.856720`. The v2 profile in `results/qwen35_4b_real_profile_v2` is the recommended 4B profile. An optional MLP surrogate is also trained from the same calibration curve (`R2 = 0.999725`, RMSE log-ratio `0.001998`), but the benchmark keeps the linear layer-gamma surrogate because it is more interpretable and monotonic outside the calibrated drop range.
+
+Qwen3.5-4B benchmark setting: `5` seeds, `16` states per seed, `80` total states, `k=256` RL candidates, beam width `32`, and `128` annealing steps. The checkpoint is `results/autoreg_rl_qwen35_4b_v2_hard/autoreg_policy_best.pt`, and the benchmark artifact is `results/benchmark_qwen35_4b_v2_hard_5seed`.
 
 | method | reward | feasible | latency | PPL | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| block_lns_strong | -0.161487 | 1.0000 | 4.6116 | 11.8245 | 0.05828 |
-| hybrid_heuristic | -0.161487 | 1.0000 | 4.6116 | 11.8245 | 0.01274 |
-| block_beam_strong | -0.163243 | 1.0000 | 4.6255 | 11.8619 | 0.47319 |
-| beam_search | -0.230150 | 1.0000 | 4.7512 | 13.6262 | 0.03778 |
-| autoreg_rl_pure | -0.421316 | 1.0000 | 5.1026 | 18.6736 | 0.04015 |
+| block_lns_strong | -0.148590 | 1.0000 | 4.4540 | 12.8524 | 0.06087 |
+| hybrid_heuristic | -0.148590 | 1.0000 | 4.4540 | 12.8524 | 0.01368 |
+| block_beam_strong | -0.149528 | 1.0000 | 4.4621 | 12.8739 | 0.68943 |
+| autoreg_rl_pure | -0.152260 | 1.0000 | 4.5131 | 12.9111 | 0.04096 |
+| beam_search | -0.230918 | 1.0000 | 4.8283 | 15.0544 | 0.07091 |
 
-RL vs best non-RL baseline on Qwen3.5-4B: mean margin `-0.259829`, min margin `-5.055748`, win/tie rate `0.1250`, strict win rate `0.0000`. The RL policy reaches full feasibility but does not beat the strongest block heuristics under the current 4B resource setting, so this should be treated as a larger-model stress test rather than the main success claim.
+RL vs best non-RL baseline on Qwen3.5-4B v2: mean margin `-0.003670`, min margin `-0.102670`, win/tie rate `0.4500`, strict win rate `0.1000`. The v2 surrogate and v2 fine-tuning greatly reduce the gap, but RL still does not beat the strongest block heuristics under the current 4B resource setting, so this should be treated as a larger-model stress test rather than the main success claim.
 
 Gemma-4-E4B-it deploys, but the current text-only PPL evaluation gives clean PPL `32287.1` and a negative embedding surrogate R2. That means the current tokenizer/prompt/PPL pipeline is not valid enough for simulator or RL comparison; Gemma benchmark results should wait until the Gemma-specific PPL evaluation is fixed.
 
@@ -345,9 +349,12 @@ python -m src.make_visuals `
 |   |-- visuals_layer_calibrated_hard_k256/          # figures embedded in this README
 |   |-- qwen3_0p6b_real_profile/                     # real Qwen3 calibration artifacts
 |   |-- qwen35_4b_real_profile/                      # experimental Qwen3.5-4B calibration artifacts
+|   |-- qwen35_4b_real_profile_v2/                   # high-quality Qwen3.5-4B calibration + optional MLP surrogate
 |   |-- gemma4_e4b_it_real_profile/                  # Gemma deployment/profile artifacts
 |   |-- autoreg_rl_qwen35_4b_hard/                   # experimental Qwen3.5-4B checkpoint
+|   |-- autoreg_rl_qwen35_4b_v2_hard/                # v2 Qwen3.5-4B checkpoint
 |   |-- benchmark_qwen35_4b_hard_5seed/              # experimental Qwen3.5-4B benchmark
+|   |-- benchmark_qwen35_4b_v2_hard_5seed/           # v2 Qwen3.5-4B benchmark
 |   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   `-- surrogate_benchmark/
 |-- requirements.txt

@@ -13,27 +13,43 @@ This benchmark was run on branch `qwen35-gemma-explore`. The original Qwen3-0.6B
 
 | model | clean PPL | forward latency | profile quality |
 |---|---:|---:|---|
-| `Qwen/Qwen3.5-4B` | 11.1778 embedding profile, 12.5082 layer profile | 167.9 ms | usable |
+| `Qwen/Qwen3.5-4B` | 11.1778 embedding profile, 12.3887 v2 layer profile | 167.9 ms | usable |
 | `google/gemma-4-E4B-it` | 32287.1 | 1624.3 ms | not reliable with the current PPL pipeline |
 
 Gemma-4-E4B-it successfully deployed, but its current clean PPL is extremely high on the configured text-only PPL evaluation, and the embedding-level surrogate fit has negative R2. That means the current tokenizer/prompt/PPL pipeline is not a valid basis for a simulator benchmark. It should not be compared against Qwen results until the Gemma PPL evaluation is fixed.
 
 ## Qwen3.5-4B Surrogate Calibration
 
-Layer-wise hidden-state corruption calibration:
+The first quick layer calibration was too noisy: it used `16` texts, `64` tokens, and one corruption trial, giving mean layer R2 `0.856720` and RMSE log-ratio `0.028426`. The v2 calibration below is the current recommended profile.
+
+Layer-wise hidden-state corruption calibration v2:
 
 | metric | value |
 |---|---:|
 | layers | 32 |
-| clean PPL | 12.508157 |
-| drop rates | 0.0, 0.01, 0.03, 0.05 |
-| corruption trials | 1 |
-| fitted gamma sum | 196.068559 |
-| fitted R2 | 0.856720 |
-| RMSE log-ratio | 0.028426 |
-| layer gamma mean | 6.324792 |
-| layer gamma min | 3.874879 |
-| layer gamma max | 11.154610 |
+| clean PPL | 12.388740 |
+| max length | 128 |
+| sample count | 64 |
+| drop rates | 0.0, 0.005, 0.01, 0.02, 0.03, 0.05 |
+| corruption trials | 3 |
+| fitted gamma sum | 206.094048 |
+| fitted R2 | 0.995787 |
+| RMSE log-ratio | 0.006596 |
+| layer gamma mean | 6.648195 |
+| layer gamma min | 4.467947 |
+| layer gamma max | 10.431587 |
+
+An optional MLP surrogate is also trained from the same v2 curve:
+
+| metric | value |
+|---|---:|
+| rows | 155 |
+| MLP R2 | 0.999725 |
+| MLP RMSE log-ratio | 0.001998 |
+| hidden dim | 64 |
+| depth | 2 |
+
+The main simulator benchmark still uses the linear layer-gamma surrogate. The MLP is kept as a fallback/diagnostic model; its inference path clamps the residual feature at the calibrated maximum and then applies the learned sensitivity to the actual residual, which prevents non-monotonic extrapolation beyond the calibrated drop range.
 
 ## Qwen3.5-4B RL Benchmark
 
@@ -54,29 +70,29 @@ Results:
 
 | method | reward mean | reward std | feasible | latency | PPL | runtime s |
 |---|---:|---:|---:|---:|---:|---:|
-| block_lns_strong | -0.161487 | 0.076514 | 1.0000 | 4.6116 | 11.8245 | 0.05828 |
-| hybrid_heuristic | -0.161487 | 0.076514 | 1.0000 | 4.6116 | 11.8245 | 0.01274 |
-| block_beam_strong | -0.163243 | 0.078328 | 1.0000 | 4.6255 | 11.8619 | 0.47319 |
-| beam_search | -0.230150 | 0.216815 | 1.0000 | 4.7512 | 13.6262 | 0.03778 |
-| autoreg_rl_pure | -0.421316 | 0.761613 | 1.0000 | 5.1026 | 18.6736 | 0.04015 |
-| simulated_annealing | -2.355267 | 11.46220 | 0.9875 | 7.5733 | 1.1828e6 | 0.00638 |
-| local_search | -2.359120 | 11.46154 | 0.9875 | 7.5603 | 1.1828e6 | 0.01519 |
-| pdp_aware_greedy | -50.672868 | 413.2303 | 1.0000 | 5.3058 | 1422.761 | 0.00040 |
-| random | -100.000000 | 0.000000 | 0.0000 | 181.1778 | 1.6384e20 | 0.02289 |
-| latency_greedy | -27453.464555 | 200845.7 | 0.9750 | 20.8246 | 1.8735e6 | 0.00007 |
-| block_balanced | -566228.647247 | 4981037.0 | 0.9750 | 27.8794 | 1.5827e7 | 0.00008 |
+| block_lns_strong | -0.148590 | 0.050451 | 1.0000 | 4.4540 | 12.8524 | 0.06087 |
+| hybrid_heuristic | -0.148590 | 0.050451 | 1.0000 | 4.4540 | 12.8524 | 0.01368 |
+| block_beam_strong | -0.149528 | 0.050791 | 1.0000 | 4.4621 | 12.8739 | 0.68943 |
+| autoreg_rl_pure | -0.152260 | 0.053592 | 1.0000 | 4.5131 | 12.9111 | 0.04096 |
+| beam_search | -0.230918 | 0.246015 | 1.0000 | 4.8283 | 15.0544 | 0.07091 |
+| simulated_annealing | -1.791802 | 4.083456 | 1.0000 | 5.2076 | 63.0454 | 0.00671 |
+| local_search | -1.792286 | 4.083321 | 1.0000 | 5.2111 | 63.0573 | 0.01592 |
+| pdp_aware_greedy | -2.307821 | 4.561740 | 1.0000 | 5.1288 | 79.1008 | 0.00069 |
+| random | -100.000000 | 0.000000 | 0.0000 | 183.0535 | 2.8090e18 | 0.02408 |
+| latency_greedy | -15793.649937 | 109257.3 | 0.9750 | 9.8148 | 9.0238e6 | 0.00008 |
+| block_balanced | -189260.669975 | 1583938.8 | 0.9750 | 17.4562 | 6.4090e6 | 0.00008 |
 
 RL margin vs best non-RL baseline:
 
 | metric | value |
 |---|---:|
-| mean margin | -0.259829 |
-| min margin | -5.055748 |
-| win/tie rate | 0.1250 |
-| strict win rate | 0.0000 |
+| mean margin | -0.003670 |
+| min margin | -0.102670 |
+| win/tie rate | 0.4500 |
+| strict win rate | 0.1000 |
 
 ## Interpretation
 
-Qwen3.5-4B is deployable on this desktop for profiling and simulator experiments. The RL policy reaches 100% feasibility and is much better after hard-state training, but it does not beat the strongest block heuristics under the current 4B resource setting. This benchmark is therefore useful as a larger-model stress test, not as the main win-rate result.
+Qwen3.5-4B is deployable on this desktop for profiling and simulator experiments. The v2 surrogate is much stronger than the first quick calibration, and v2 RL fine-tuning reduces the gap to the strongest heuristic from `-0.259829` mean margin to `-0.003670`. RL still does not beat the strongest block heuristics under the current 4B resource setting, so this benchmark is useful as a larger-model stress test, not as the main win-rate result.
 
 Gemma-4-E4B-it can be loaded, but the current text-only PPL evaluation is not valid enough for RL benchmarking. The next step for Gemma would be to fix model-specific prompting/tokenization and verify a reasonable clean PPL before running layer-wise calibration.

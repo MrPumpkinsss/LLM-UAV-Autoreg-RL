@@ -113,6 +113,7 @@ def main() -> None:
     parser.add_argument("--corruption-trials", type=int, default=4)
     parser.add_argument("--max-length", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--num-texts", type=int, default=None)
     parser.add_argument("--max-layers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--skip-clean-ppl", action="store_true")
@@ -121,6 +122,8 @@ def main() -> None:
     cfg = load_yaml(args.config)
     if args.seed is not None:
         cfg["seed"] = int(args.seed)
+    if args.num_texts is not None:
+        cfg["num_texts"] = int(args.num_texts)
     set_seed(int(cfg["seed"]))
 
     out_dir = ensure_dir(args.out_dir)
@@ -151,10 +154,14 @@ def main() -> None:
     if not args.skip_clean_ppl:
         clean_ppl = compute_ppl(model, tokenizer, texts, device, max_length, batch_size)
     else:
-        summary_path = out_dir / "real_profile_summary.json"
-        if not summary_path.exists():
-            summary_path = Path(cfg.get("output_dir", "results/qwen3_0p6b_real_profile")) / "real_profile_summary.json"
-        clean_ppl = float(json.loads(summary_path.read_text(encoding="utf-8"))["ppl_ref"])
+        layer_summary_path = out_dir / "layer_ppl_summary.json"
+        if layer_summary_path.exists():
+            clean_ppl = float(json.loads(layer_summary_path.read_text(encoding="utf-8"))["clean_ppl"])
+        else:
+            summary_path = out_dir / "real_profile_summary.json"
+            if not summary_path.exists():
+                summary_path = Path(cfg.get("output_dir", "results/qwen3_0p6b_real_profile")) / "real_profile_summary.json"
+            clean_ppl = float(json.loads(summary_path.read_text(encoding="utf-8"))["ppl_ref"])
 
     rows: list[dict[str, Any]] = []
     layer_gammas: list[float] = []
@@ -162,6 +169,7 @@ def main() -> None:
     layer_rmses: list[float] = []
 
     for layer_idx in range(boundary_layers):
+        print(f"calibrating_layer={layer_idx + 1}/{boundary_layers}", flush=True)
         layer_ppls = []
         for drop in drop_rates:
             if drop <= 0.0:
@@ -202,6 +210,14 @@ def main() -> None:
                 "clean_ppl": float(clean_ppl),
                 "drop_curve": layer_ppls,
             }
+        )
+        partial_gamma = np.asarray(layer_gammas, dtype=np.float64)
+        np.save(out_dir / "layer_ppl_gamma.partial.npy", partial_gamma)
+        (out_dir / "layer_ppl_curve.partial.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
+        print(
+            f"layer={layer_idx} gamma={layer_gamma:.6f} r2={float(r2):.6f} "
+            f"rmse={float(rmse):.6f}",
+            flush=True,
         )
 
     gamma_arr = np.asarray(layer_gammas, dtype=np.float64)

@@ -82,7 +82,7 @@ def pdp_aware_greedy(env: LLMUAVEnv, state: SimState) -> np.ndarray:
                 rate = max(rate, float(env.cfg["wireless"]["min_rate_bps"]))
                 attempts, residual = env._attempts_and_residual(p)
                 link_cost = env.profile.activation_bytes[layer - 1] * 8.0 / rate * attempts
-                link_cost += env.cfg["reward"]["latency_ref_s"] * env.profile.importance[layer - 1] * residual
+                link_cost += env.cfg["reward"]["latency_ref_s"] * env.ppl_transition_cost(layer - 1, residual)
             scores.append(compute + link_cost)
         if np.all(~np.isfinite(scores)):
             uav = int(np.argmin(mem_used / np.maximum(state.resources.mem_bytes, 1.0)))
@@ -210,7 +210,7 @@ def beam_search(env: LLMUAVEnv, state: SimState, beam_width: int = 24) -> tuple[
                     link_cost += float(env.profile.activation_bytes[l]) * 8.0 * attempts / (
                         float(env.cfg["wireless"]["bandwidth_hz"]) * spectral_eff
                     )
-                    link_cost += float(env.cfg["reward"]["latency_ref_s"]) * float(env.profile.importance[l]) * residual
+                    link_cost += float(env.cfg["reward"]["latency_ref_s"]) * env.ppl_transition_cost(l, residual)
                 next_beams.append((new_prefix, -(compute + link_cost)))
         if not next_beams:
             fallback = block_balanced(env, state)
@@ -288,9 +288,9 @@ def _block_proxy_score(
         comm = float(env.profile.activation_bytes[start - 1]) * 8.0 * attempts / (
             float(env.cfg["wireless"]["bandwidth_hz"]) * spectral_eff
         )
-        damage = float(env.profile.importance[start - 1]) * residual
+        damage = env.ppl_transition_cost(start - 1, residual)
         score += float(reward_cfg["beta"]) * comm / float(reward_cfg["latency_ref_s"])
-        score += float(reward_cfg["alpha"]) * float(env.profile.ppl_gamma) * damage
+        score += float(reward_cfg["alpha"]) * damage
     return score
 
 
@@ -397,9 +397,9 @@ def block_beam_strong(
                 comm = float(env.profile.activation_bytes[boundary - 1]) * 8.0 * attempts / (
                     float(env.cfg["wireless"]["bandwidth_hz"]) * spectral_eff
                 )
-                damage = float(env.profile.importance[boundary - 1]) * residual
+                damage = env.ppl_transition_cost(boundary - 1, residual)
                 proxy += beta * comm / latency_ref
-                proxy += alpha * float(env.profile.ppl_gamma) * damage
+                proxy += alpha * damage
 
             action = np.empty(env.num_layers, dtype=np.int64)
             for idx, uav in enumerate(assignment):

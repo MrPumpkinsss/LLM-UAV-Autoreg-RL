@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .channel import ChannelState, sample_channel
-from .llm_profile import LLMProfile
+from .llm_profile import LLMProfile, ppl_hat_from_residuals
 
 
 @dataclass(frozen=True)
@@ -357,6 +357,7 @@ class LLMUAVEnv:
 
         total_comm_latency = 0.0
         damage = 0.0
+        residuals = np.zeros(self.num_layers - 1, dtype=np.float64)
         if transitions:
             bandwidths = self._allocate_bandwidths(state, transitions)
             for idx, (layer, src, dst, p) in enumerate(transitions):
@@ -369,6 +370,7 @@ class LLMUAVEnv:
                 total_comm_latency += comm_latency
                 energy_by_uav[src] += float(uav_cfg["tx_power_w"]) * comm_latency
                 damage += float(self.profile.importance[layer]) * residual
+                residuals[layer] = float(residual)
 
         latency = total_compute_latency + total_comm_latency
         energy_by_uav += state.resources.hover_power_w * latency
@@ -377,7 +379,7 @@ class LLMUAVEnv:
         max_energy_ratio = float(np.max(energy_by_uav / np.maximum(state.resources.energy_j, 1.0)))
         bandwidth_ok = True
 
-        ppl_hat = float(self.profile.ppl_ref * np.exp(self.profile.ppl_gamma * damage))
+        ppl_hat = ppl_hat_from_residuals(self.profile, residuals, linear_damage=damage)
         ppl_norm = (ppl_hat - self.profile.ppl_ref) / max(self.profile.ppl_ref, 1e-9)
         latency_norm = latency / float(reward_cfg["latency_ref_s"])
         cost = float(reward_cfg["alpha"]) * ppl_norm + float(reward_cfg["beta"]) * latency_norm
@@ -398,6 +400,16 @@ class LLMUAVEnv:
             energy_ok=energy_ok,
             bandwidth_ok=bandwidth_ok,
         )
+
+    def ppl_transition_cost(self, layer: int, residual: float) -> float:
+        residuals = np.zeros(self.num_layers - 1, dtype=np.float64)
+        residuals[int(layer)] = float(residual)
+        ppl_hat = ppl_hat_from_residuals(
+            self.profile,
+            residuals,
+            linear_damage=float(self.profile.importance[int(layer)]) * float(residual),
+        )
+        return max(0.0, (ppl_hat - self.profile.ppl_ref) / max(self.profile.ppl_ref, 1e-9))
 
     def evaluate_many(self, state: SimState, actions: np.ndarray) -> list[EvalResult]:
         return [self.evaluate(state, action) for action in actions]

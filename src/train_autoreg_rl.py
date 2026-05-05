@@ -14,7 +14,7 @@ from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark, evaluate_full_benchmark_timed
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
-from .llm_profile import build_qwen3_0p6b_profile, build_qwen3_0p6b_real_profile
+from .llm_profile import build_qwen3_0p6b_profile, build_qwen3_0p6b_real_profile, ppl_hat_from_residuals_torch
 
 
 @dataclass(frozen=True)
@@ -121,7 +121,8 @@ def evaluate_training_batch_torch(
         torch.zeros_like(rate),
     )
     total_comm_latency = torch.sum(comm_latency, dim=1)
-    damage = torch.sum(torch.where(transition_mask, importance[None, :] * residual, torch.zeros_like(residual)), dim=1)
+    residual_by_layer = torch.where(transition_mask, residual, torch.zeros_like(residual))
+    damage = torch.sum(importance[None, :] * residual_by_layer, dim=1)
 
     tx_energy = float(uav_cfg["tx_power_w"]) * comm_latency
     energy_by_uav.scatter_add_(1, src, tx_energy)
@@ -132,7 +133,7 @@ def evaluate_training_batch_torch(
     max_energy_ratio = torch.max(energy_by_uav / torch.clamp(energy_caps, min=1.0), dim=1).values
 
     reward_cfg = env.cfg["reward"]
-    ppl_hat = float(env.profile.ppl_ref) * torch.exp(float(env.profile.ppl_gamma) * damage)
+    ppl_hat = ppl_hat_from_residuals_torch(env.profile, residual_by_layer)
     ppl_norm = (ppl_hat - float(env.profile.ppl_ref)) / max(float(env.profile.ppl_ref), 1e-9)
     latency_norm = latency / float(reward_cfg["latency_ref_s"])
     cost = float(reward_cfg["alpha"]) * ppl_norm + float(reward_cfg["beta"]) * latency_norm
