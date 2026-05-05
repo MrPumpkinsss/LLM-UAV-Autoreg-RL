@@ -38,6 +38,18 @@ def estimate_param_bytes(config: Any, dtype: torch.dtype) -> float | None:
     return None
 
 
+def text_config(config: Any) -> Any:
+    return getattr(config, "text_config", config)
+
+
+def config_value(config: Any, name: str):
+    cfg = text_config(config)
+    value = getattr(cfg, name, None)
+    if value is None:
+        value = getattr(config, name, None)
+    return value
+
+
 def load_model(model_id: str, cfg: dict[str, Any], dtype: torch.dtype, device_map: Any, trust_remote_code: bool):
     kwargs = dict(
         cache_dir=cfg.get("cache_dir"),
@@ -75,11 +87,11 @@ def main() -> None:
         "model_id": model_id,
         "model_type": getattr(config, "model_type", None),
         "architectures": getattr(config, "architectures", None),
-        "num_hidden_layers": getattr(config, "num_hidden_layers", None),
-        "hidden_size": getattr(config, "hidden_size", None),
-        "intermediate_size": getattr(config, "intermediate_size", None),
-        "num_attention_heads": getattr(config, "num_attention_heads", None),
-        "num_key_value_heads": getattr(config, "num_key_value_heads", None),
+        "num_hidden_layers": config_value(config, "num_hidden_layers"),
+        "hidden_size": config_value(config, "hidden_size"),
+        "intermediate_size": config_value(config, "intermediate_size"),
+        "num_attention_heads": config_value(config, "num_attention_heads"),
+        "num_key_value_heads": config_value(config, "num_key_value_heads"),
         "torch_dtype": str(dtype).replace("torch.", ""),
         "estimated_param_gib": None,
     }

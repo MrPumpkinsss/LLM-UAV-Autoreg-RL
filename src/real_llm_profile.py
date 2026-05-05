@@ -75,6 +75,18 @@ def model_input_device(model: torch.nn.Module, fallback: torch.device) -> torch.
         return fallback
 
 
+def text_config(config: Any) -> Any:
+    return getattr(config, "text_config", config)
+
+
+def config_int(config: Any, name: str, default: int = 0) -> int:
+    cfg = text_config(config)
+    value = getattr(cfg, name, None)
+    if value is None:
+        value = getattr(config, name, default)
+    return int(value)
+
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -86,6 +98,12 @@ def set_seed(seed: int) -> None:
 def get_decoder_layers(model: torch.nn.Module) -> torch.nn.ModuleList:
     if hasattr(model, "model") and hasattr(model.model, "layers"):
         return model.model.layers
+    if (
+        hasattr(model, "model")
+        and hasattr(model.model, "language_model")
+        and hasattr(model.model.language_model, "layers")
+    ):
+        return model.model.language_model.layers
     if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
         return model.transformer.h
     raise AttributeError("could not locate decoder layers on model")
@@ -162,6 +180,10 @@ def compute_ppl(
 
 def attach_embedding_corruption(model: torch.nn.Module, drop_rate: float, seed: int):
     embed = model.get_input_embeddings()
+    if embed is None and hasattr(model, "model") and hasattr(model.model, "language_model"):
+        embed = model.model.language_model.get_input_embeddings()
+    if embed is None:
+        raise AttributeError("could not locate input embeddings on model")
     generator = torch.Generator(device=embed.weight.device)
     generator.manual_seed(seed)
 
@@ -262,11 +284,11 @@ def main() -> None:
     gamma, fit_r2, fit_rmse = fit_gamma([r["drop_rate"] for r in rows], [r["ppl_mean"] for r in rows], ppl_ref)
     summary = RealProfileSummary(
         model_id=model_id,
-        num_layers=int(getattr(config, "num_hidden_layers")),
-        hidden_size=int(getattr(config, "hidden_size")),
-        intermediate_size=int(getattr(config, "intermediate_size")),
-        num_attention_heads=int(getattr(config, "num_attention_heads")),
-        num_key_value_heads=int(getattr(config, "num_key_value_heads")),
+        num_layers=config_int(config, "num_hidden_layers"),
+        hidden_size=config_int(config, "hidden_size"),
+        intermediate_size=config_int(config, "intermediate_size"),
+        num_attention_heads=config_int(config, "num_attention_heads"),
+        num_key_value_heads=config_int(config, "num_key_value_heads"),
         dtype=str(dtype).replace("torch.", ""),
         total_params=int(total_params),
         layer_param_mean=float(np.mean(layer_params)),

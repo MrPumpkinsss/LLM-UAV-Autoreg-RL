@@ -1,4 +1,4 @@
-model_id: google/gemma-3-4b-pt
+model_id: google/gemma-4-E4B-it
 cache_dir: null
 device: cuda
 device_map: auto
@@ -12,7 +12,7 @@ batch_size: 1
 drop_rates: [0.0, 0.01, 0.03, 0.05]
 corruption_trials: 2
 seed: 123
-output_dir: results/gemma3_4b_real_profile
+output_dir: results/gemma4_e4b_it_real_profile
 dataset:
   name: wikitext
   config: wikitext-2-raw-v1

@@ -46,6 +46,12 @@ class LayerGammaSummary:
 def get_decoder_layers(model: torch.nn.Module) -> torch.nn.ModuleList:
     if hasattr(model, "model") and hasattr(model.model, "layers"):
         return model.model.layers
+    if (
+        hasattr(model, "model")
+        and hasattr(model.model, "language_model")
+        and hasattr(model.model.language_model, "layers")
+    ):
+        return model.model.language_model.layers
     if hasattr(model, "transformer") and hasattr(model.transformer, "h"):
         return model.transformer.h
     raise AttributeError("could not locate decoder layers on model")

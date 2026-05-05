@@ -1,0 +1,21 @@
+{
+  "model_id": "Qwen/Qwen3.5-4B",
+  "num_layers": 32,
+  "clean_ppl": 12.508157074727082,
+  "max_length": 64,
+  "batch_size": 1,
+  "sample_count": 16,
+  "drop_rates": [
+    0.0,
+    0.01,
+    0.03,
+    0.05
+  ],
+  "corruption_trials": 1,
+  "fitted_gamma_sum": 196.06855947881232,
+  "fitted_r2": 0.8567200686042307,
+  "fitted_rmse_log_ratio": 0.028426305240742297,
+  "layer_gamma_mean": 6.32479224125201,
+  "layer_gamma_min": 3.8748789394427052,
+  "layer_gamma_max": 11.154609669408245
+}
