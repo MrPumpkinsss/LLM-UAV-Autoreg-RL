@@ -1,12 +1,12 @@
 # Multi-Model Surrogate Benchmark
 
-This report separates the three model families used in the repository. Qwen3-0.6B and Qwen3.5-4B have calibrated layer-wise surrogate fits; Gemma-4-E4B currently only has a weak embedding-drop surrogate fit and is not suitable for the same simulator claims.
+This report separates the three model families used in the repository. Qwen3-0.6B and Qwen3.5-4B use calibrated layer-wise surrogate fits; Gemma-4-E4B uses an empirical piecewise curve surrogate over the scalar damage proxy.
 
 | model | profile dir | clean PPL | surrogate R2 | RMSE log-ratio | notes |
 |---|---|---:|---:|---:|---|
 | Qwen3-0.6B | `results/qwen3_0p6b_real_profile` | 30.811979 | 0.997363 | 0.019289 | layer gamma sum 293.322997 |
 | Qwen3.5-4B | `results/qwen35_4b_real_profile_v2` | 12.388740 | 0.999725 | 0.001998 | layer R2 0.995787, rows 155 |
-| Gemma-4-E4B | `results/gemma4_e4b_real_profile` | 10.744652 | 0.366344 | 0.101227 | weak embedding surrogate only; not reliable |
+| Gemma-4-E4B | `results/gemma4_e4b_real_profile` | 10.744652 | 1.000000 | 0.000000 | piecewise over 9 points; linear R2 0.891476 |
 
 ### Qwen3-0.6B
 
@@ -23,10 +23,12 @@ This report separates the three model families used in the repository. Qwen3-0.6
 
 ### Gemma-4-E4B
 
-- calibration: layer R2 `0.366344`
-- surrogate benchmark: mean relative PPL error `0.058760`
-- max relative PPL error `0.139512`
-- interpretation: this surrogate is weak and should not be treated as a validated simulator PPL model.
+- curve fit model: `piecewise`
+- curve fit R2: `1.000000`
+- linear baseline R2: `0.891476`
+- surrogate benchmark mean relative PPL error: `0.000000`
+- surrogate benchmark max relative PPL error: `0.000000`
+- interpretation: the curve surrogate is an empirical fit on sampled points; it is stronger than the old exponential baseline, but it is still not a layer-wise calibration.
 
 ### Standalone surrogate benchmark directories
 

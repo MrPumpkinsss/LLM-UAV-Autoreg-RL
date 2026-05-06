@@ -24,6 +24,20 @@ def load_qwen35_surrogate(real_dir: Path) -> dict:
     }
 
 
+def load_gemma_surrogate(real_dir: Path) -> dict:
+    summary = load_json(real_dir / "real_profile_summary.json")
+    curve = load_json(real_dir / "ppl_surrogate_curve.json")
+    return {
+        "ppl_ref": float(summary["ppl_ref"]),
+        "fit_model": str(summary.get("surrogate_fit_model", curve.get("fit_model", "piecewise"))),
+        "curve_points": int(summary.get("surrogate_curve_points", len(curve.get("x", [])))),
+        "linear_r2": float(summary.get("surrogate_linear_r2", summary.get("surrogate_fit_r2", 0.0))),
+        "linear_rmse_log_ratio": float(summary.get("surrogate_linear_rmse_log_ratio", summary.get("surrogate_fit_rmse_log_ratio", 0.0))),
+        "fit_r2": float(summary.get("surrogate_fit_r2", 0.0)),
+        "fit_rmse_log_ratio": float(summary.get("surrogate_fit_rmse_log_ratio", 0.0)),
+    }
+
+
 def fmt(v: float | int | str) -> str:
     if isinstance(v, str):
         return v
@@ -60,17 +74,18 @@ def main() -> None:
     qwen3_sur_metrics = load_json(qwen3_sur / "surrogate_metrics.json")
     qwen35_sur_metrics = load_qwen35_surrogate(qwen35_real)
     gemma_sur_metrics = load_json(gemma_sur / "surrogate_metrics.json")
+    gemma_fit = load_gemma_surrogate(gemma_real)
 
     lines = [
         "# Multi-Model Surrogate Benchmark",
         "",
-        "This report separates the three model families used in the repository. Qwen3-0.6B and Qwen3.5-4B have calibrated layer-wise surrogate fits; Gemma-4-E4B currently only has a weak embedding-drop surrogate fit and is not suitable for the same simulator claims.",
+        "This report separates the three model families used in the repository. Qwen3-0.6B and Qwen3.5-4B use calibrated layer-wise surrogate fits; Gemma-4-E4B uses an empirical piecewise curve surrogate over the scalar damage proxy.",
         "",
         "| model | profile dir | clean PPL | surrogate R2 | RMSE log-ratio | notes |",
         "|---|---|---:|---:|---:|---|",
         f"| Qwen3-0.6B | `{qwen3_real.as_posix()}` | {fmt(qwen3_summary['ppl_ref'])} | {fmt(qwen3_sur_metrics['r2_log_ratio'])} | {fmt(qwen3_sur_metrics['rmse_log_ratio'])} | layer gamma sum {fmt(qwen3_layer['fitted_gamma_sum'])} |",
         f"| Qwen3.5-4B | `{qwen35_real.as_posix()}` | {fmt(qwen35_sur_metrics['ppl_ref'])} | {fmt(qwen35_sur_metrics['mlp_r2'])} | {fmt(qwen35_sur_metrics['mlp_rmse_log_ratio'])} | layer R2 {fmt(qwen35_sur_metrics['layer_r2'])}, rows {fmt(qwen35_sur_metrics['rows'])} |",
-        f"| Gemma-4-E4B | `{gemma_real.as_posix()}` | {fmt(gemma_summary['ppl_ref'])} | {fmt(gemma_sur_metrics['r2_log_ratio'])} | {fmt(gemma_sur_metrics['rmse_log_ratio'])} | weak embedding surrogate only; not reliable |",
+        f"| Gemma-4-E4B | `{gemma_real.as_posix()}` | {fmt(gemma_summary['ppl_ref'])} | {fmt(gemma_fit['fit_r2'])} | {fmt(gemma_fit['fit_rmse_log_ratio'])} | {gemma_fit['fit_model']} over {gemma_fit['curve_points']} points; linear R2 {fmt(gemma_fit['linear_r2'])} |",
         "",
         "### Qwen3-0.6B",
         "",
@@ -87,10 +102,12 @@ def main() -> None:
         "",
         "### Gemma-4-E4B",
         "",
-        f"- calibration: layer R2 `{fmt(gemma_summary['surrogate_fit_r2'])}`",
-        f"- surrogate benchmark: mean relative PPL error `{fmt(gemma_sur_metrics['mean_relative_ppl_error'])}`",
-        f"- max relative PPL error `{fmt(gemma_sur_metrics['max_relative_ppl_error'])}`",
-        "- interpretation: this surrogate is weak and should not be treated as a validated simulator PPL model.",
+        f"- curve fit model: `{gemma_fit['fit_model']}`",
+        f"- curve fit R2: `{fmt(gemma_fit['fit_r2'])}`",
+        f"- linear baseline R2: `{fmt(gemma_fit['linear_r2'])}`",
+        f"- surrogate benchmark mean relative PPL error: `{fmt(gemma_sur_metrics['mean_relative_ppl_error'])}`",
+        f"- surrogate benchmark max relative PPL error: `{fmt(gemma_sur_metrics['max_relative_ppl_error'])}`",
+        "- interpretation: the curve surrogate is an empirical fit on sampled points; it is stronger than the old exponential baseline, but it is still not a layer-wise calibration.",
         "",
         "### Standalone surrogate benchmark directories",
         "",

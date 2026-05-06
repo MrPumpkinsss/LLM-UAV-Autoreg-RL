@@ -5,9 +5,11 @@ Real profile directory: `results/qwen3_0p6b_real_profile`
 | metric | value |
 |---|---:|
 | PPL_ref | 30.811979 |
+| fit | exponential |
 | gamma | 10.898646 |
 | layer gamma sum | 293.322997 |
 | layer mean R2 | 0.982527 |
+| exponential R2 log-ratio | 0.997363 |
 | R2 log-ratio | 0.997363 |
 | RMSE log-ratio | 0.019289 |
 | MAE PPL | 0.797233 |

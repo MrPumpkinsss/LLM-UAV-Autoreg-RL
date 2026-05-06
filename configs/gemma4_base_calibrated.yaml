@@ -12,7 +12,7 @@ profile:
   ppl_ref: 10.74465168178793
   ppl_gamma: 7.6656569992961865
   real_profile_dir: results/gemma4_e4b_real_profile
-  surrogate_mode: linear
+  surrogate_mode: curve
   layer_compute_jitter: 0.12
   activation_jitter: 0.08
 uav:

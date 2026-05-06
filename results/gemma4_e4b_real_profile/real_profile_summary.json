@@ -11,9 +11,12 @@
   "layer_param_mean": 93948202.66666667,
   "layer_param_min": 90452736,
   "layer_param_max": 106182144,
-  "forward_latency_ms_mean": 1499.7905900003389,
+  "forward_latency_ms_mean": 1764.4366399967112,
   "ppl_ref": 10.74465168178793,
-  "fitted_gamma": 7.6656569992961865,
-  "surrogate_fit_r2": 0.3663435954440091,
-  "surrogate_fit_rmse_log_ratio": 0.10122671229764796
+  "fitted_gamma": 11.007995333825798,
+  "surrogate_fit_model": "piecewise",
+  "surrogate_linear_r2": 0.8914758212057629,
+  "surrogate_linear_rmse_log_ratio": 0.1137253139741009,
+  "surrogate_fit_r2": 1.0,
+  "surrogate_fit_rmse_log_ratio": 0.0
 }

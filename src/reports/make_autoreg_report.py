@@ -7,6 +7,14 @@ from pathlib import Path
 import pandas as pd
 
 
+def fmt_opt(value: object, precision: int = 6) -> str:
+    if value is None:
+        return "n/a"
+    if isinstance(value, (int, float)):
+        return f"{float(value):.{precision}f}"
+    return str(value)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-dir", default="results/autoreg_rl_teacher")
@@ -17,10 +25,9 @@ def main() -> None:
     train_dir = Path(args.train_dir)
     bench_dir = Path(args.benchmark_dir)
     summary = json.loads((train_dir / "summary.json").read_text(encoding="utf-8"))
-    eval_df = pd.read_csv(train_dir / "eval_log.csv")
     bench_summary = pd.read_csv(bench_dir / "benchmark_summary.csv")
     margin = json.loads((bench_dir / "benchmark_margin.json").read_text(encoding="utf-8"))
-    best_eval = eval_df.loc[eval_df["reward"].idxmax()].to_dict()
+    final_eval = summary.get("final_eval", {})
 
     lines = [
         "# Autoregressive Pure RL Strong Benchmark",
@@ -34,10 +41,14 @@ def main() -> None:
         "## Training",
         "",
         f"- Train directory: `{train_dir.as_posix()}`",
-        f"- Teacher reward mean: `{summary.get('teacher_reward_mean'):.6f}`",
-        f"- Best validation episode: `{int(best_eval['episode'])}`",
-        f"- Best validation reward: `{best_eval['reward']:.6f}`",
-        f"- Best validation feasible rate: `{best_eval['feasible_rate']:.4f}`",
+        f"- Episodes: `{summary.get('episodes', 'n/a')}`",
+        f"- Runtime s: `{fmt_opt(summary.get('runtime_s'))}`",
+        f"- Teacher reward mean: `{fmt_opt(summary.get('teacher_reward_mean'))}`",
+        f"- Final validation episode: `{final_eval.get('episode', 'n/a')}`",
+        f"- Final validation reward: `{fmt_opt(final_eval.get('reward'))}`",
+        f"- Final validation feasible rate: `{fmt_opt(final_eval.get('feasible_rate'), 4)}`",
+        f"- Final validation latency s: `{fmt_opt(final_eval.get('latency_s'))}`",
+        f"- Final validation PPL: `{fmt_opt(final_eval.get('ppl_hat'))}`",
         f"- Checkpoint: `{(train_dir / 'autoreg_policy_best.pt').as_posix()}`",
         "",
         "## Benchmark",

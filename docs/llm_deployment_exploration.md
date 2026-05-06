@@ -58,7 +58,7 @@ Gemma:
 
 ```text
 google/gemma-3-4b-pt returned 403 GatedRepoError.
-Accept the Gemma license on Hugging Face and retry with configs/real_llm_gemma4b.yaml.
+The tracked Gemma base path now uses `configs/real_llm_gemma4_base.yaml`.
 ```
 
 ## Code Management
@@ -71,7 +71,7 @@ Accept the Gemma license on Hugging Face and retry with configs/real_llm_gemma4b
 - Larger-model configs are separate:
   - `configs/real_llm_qwen35_9b.yaml`
   - `configs/real_llm_qwen35_4b.yaml`
-  - `configs/real_llm_gemma4b.yaml`
+  - `configs/real_llm_gemma4_base.yaml`
 - Use `src.smoke_llm_deploy` before running full PPL calibration:
 
 ```powershell

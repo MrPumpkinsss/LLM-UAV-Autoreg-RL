@@ -10,10 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-
-def ensure_dir(path: Path) -> Path:
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+from ..config import ensure_dir
 
 
 def savefig(path: Path, dpi: int = 220) -> None:
@@ -142,16 +139,30 @@ def main() -> None:
     bench_dir = Path(args.benchmark_dir)
     out_dir = ensure_dir(Path(args.out))
 
-    train_df = pd.read_csv(train_dir / "train_log.csv")
-    eval_df = pd.read_csv(train_dir / "eval_log.csv")
+    train_log = train_dir / "train_log.csv"
+    eval_log = train_dir / "eval_log.csv"
+    benchmark_rows = bench_dir / "benchmark_rows.csv"
     summary_df = pd.read_csv(bench_dir / "benchmark_summary.csv")
-    rows_df = pd.read_csv(bench_dir / "benchmark_rows.csv")
     margin = json.loads((bench_dir / "benchmark_margin.json").read_text(encoding="utf-8"))
 
-    plot_training_curves(train_df, eval_df, out_dir)
+    generated = []
+    if train_log.exists() and eval_log.exists():
+        train_df = pd.read_csv(train_log)
+        eval_df = pd.read_csv(eval_log)
+        plot_training_curves(train_df, eval_df, out_dir)
+        generated.append("training_curves.png")
+    else:
+        print("skipping training_curves.png; train_log.csv/eval_log.csv not found", flush=True)
+
     plot_benchmark_summary(summary_df, out_dir)
-    plot_margin_distribution(rows_df, out_dir)
-    plot_state_scatter(rows_df, out_dir)
+    generated.extend(["benchmark_reward_bar.png", "benchmark_feasibility_bar.png"])
+    if benchmark_rows.exists():
+        rows_df = pd.read_csv(benchmark_rows)
+        plot_margin_distribution(rows_df, out_dir)
+        plot_state_scatter(rows_df, out_dir)
+        generated.extend(["margin_histogram.png", "margin_by_seed.png", "autoreg_vs_heuristic_scatter.png"])
+    else:
+        print("skipping margin/scatter plots; benchmark_rows.csv not found", flush=True)
 
     report_lines = [
         "# Visual Summary",
@@ -163,17 +174,11 @@ def main() -> None:
         "",
         "## Generated Files",
         "",
-        "- `training_curves.png`",
-        "- `benchmark_reward_bar.png`",
-        "- `benchmark_feasibility_bar.png`",
-        "- `margin_histogram.png`",
-        "- `margin_by_seed.png`",
-        "- `autoreg_vs_heuristic_scatter.png`",
     ]
+    report_lines.extend(f"- `{name}`" for name in generated)
     (out_dir / "visual_summary.md").write_text("\n".join(report_lines) + "\n", encoding="utf-8")
     print(f"wrote visuals to {out_dir}")
 
 
 if __name__ == "__main__":
     main()
-

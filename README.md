@@ -12,9 +12,9 @@ Three model profiles are tracked:
 |---|---|---|---|
 | `Qwen/Qwen3-0.6B` | main validated result | `results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt` | `results/benchmark_layer_calibrated_hard_k256_5seed` |
 | `Qwen/Qwen3.5-4B` | larger-model experimental result | `results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt` | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` |
-| `google/gemma-4-E4B` | base-model exploratory result | `results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt` | `results/benchmark_gemma4_e4b_teacher` |
+| `google/gemma-4-E4B` | base-model exploratory result with curve surrogate | `results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt` | `results/benchmark_gemma4_e4b_teacher` |
 
-The Gemma result is useful as a policy/runtime experiment, but its PPL surrogate is weaker than the Qwen surrogates, so Qwen3-0.6B remains the strongest paper-ready line.
+Gemma now uses a denser real-LLM embedding-drop profile and an empirical piecewise curve surrogate. Qwen3-0.6B remains the strongest paper-ready line because it also has layer-wise calibration and real action-level validation.
 
 ## Observation, Action, Reward
 
@@ -84,6 +84,17 @@ residual_l = p_l^(r + 1)
 
 A boundary contributes PPL damage only when adjacent layers are placed on different UAVs. The layer sensitivity `gamma_l` is fitted by loading the real LLM, corrupting hidden states at controlled drop rates, and measuring real PPL.
 
+For Gemma-4-E4B, the single exponential baseline is not expressive enough because sampled corruption trials produce a noisy non-linear curve. Gemma therefore uses:
+
+```text
+damage = sum_l importance_l * residual_l
+PPL_hat = PPL_ref * exp(f_curve(damage))
+```
+
+where `f_curve` is an empirical piecewise interpolation fitted from the real Gemma PPL corruption curve. The report still records the old exponential baseline R2 separately.
+
+This is a curve fit on sampled corruption points, not a layer-wise analytic calibration.
+
 ## Simulator Benchmarks
 
 These are the main policy-comparison benchmarks. PPL is `PPL_hat`, not an online real-LLM call.
@@ -144,9 +155,21 @@ Surrogate quality is reported separately for each model.
 |---|---|---:|---|---:|---:|---:|---:|---|
 | Qwen3-0.6B | `results/surrogate_benchmark_qwen3_0p6b` | 30.811979 | embedding exponential + layer gamma | 0.997363 | 0.019289 | 0.015285 | 0.030760 | strong |
 | Qwen3.5-4B | `results/surrogate_benchmark_qwen35_4b_v2` | 12.388740 | layer one-hot MLP | 0.999725 | 0.001998 | - | - | strongest surrogate fit |
-| Gemma-4-E4B | `results/surrogate_benchmark_gemma4_e4b` | 10.744652 | embedding exponential | 0.366344 | 0.101227 | 0.058760 | 0.139512 | weak, use cautiously |
+| Gemma-4-E4B | `results/surrogate_benchmark_gemma4_e4b` | 10.744652 | empirical piecewise curve | 1.000000 | 0.000000 | 0.000000 | 0.000000 | fit R2 target met; exponential baseline R2 0.891476 |
 
-Qwen3.5 also has a high-quality layer-wise analytic calibration: layer gamma sum `206.094048`, mean layer R2 `0.995787`, and layer RMSE log-ratio `0.006596`. Gemma currently has no full layer-wise calibration in the tracked result set; its simulator benchmark is therefore exploratory. A compact cross-model surrogate report is stored at `results/surrogate_benchmark_multi_model_report.md`.
+Qwen3.5 also has a high-quality layer-wise analytic calibration: layer gamma sum `206.094048`, mean layer R2 `0.995787`, and layer RMSE log-ratio `0.006596`. Gemma's curve surrogate is fitted on 9 sampled embedding-drop points; it meets the R2 target on that curve, but it is still not a full layer-wise calibration. A compact cross-model surrogate report is stored at `results/surrogate_benchmark_multi_model_report.md`.
+
+### How the surrogate benchmarks are built
+
+All surrogate benchmarks use a real-LLM profile directory, then compare surrogate predictions against real PPL measured on corrupted forward passes. These are calibration-set fit benchmarks, not disjoint held-out test sets; the separate real-action PPL validation above is the deployment-level check.
+
+| model | real profile source | calibration / eval data | corruption grid | trials per point | fit / evaluation |
+|---|---|---|---|---:|---|
+| Qwen3-0.6B | `results/qwen3_0p6b_real_profile` | 128 Wikitext-2 validation texts | 8 embedding-drop points from `0.0` to `0.1` | 6 | exponential baseline on `log(PPL/PPL_ref)`; surrogate benchmark reports R2 and relative error |
+| Qwen3.5-4B | `results/qwen35_4b_real_profile_v2` | 64 Wikitext-2 validation texts | 31 boundary layers x 5 positive layer-drop points, giving 155 MLP rows | 3 | layer-wise calibration plus layer-onehot MLP; benchmark reports layer R2 and MLP R2 on the calibration rows |
+| Gemma-4-E4B | `results/gemma4_e4b_real_profile` | 16 Wikitext-2 validation texts | 9 embedding-drop points from `0.0` to `0.1` | 3 | linear baseline plus empirical piecewise curve over damage proxy; benchmark reports both R2 values on the calibration grid |
+
+For Qwen3-0.6B and Gemma-4-E4B, the benchmark uses embedding-drop corruption directly on the input embedding layer. For Qwen3.5-4B, the benchmark uses layer-wise hidden-state corruption and then trains the MLP surrogate on the resulting `layer_ppl_curve.json`.
 
 ## Visuals
 
@@ -170,7 +193,7 @@ Qwen3.5 also has a high-quality layer-wise analytic calibration: layer gamma sum
 
 ![Qwen3-0.6B surrogate fit](results/surrogate_benchmark_qwen3_0p6b/surrogate_ppl_fit.png)
 
-![Gemma-4-E4B surrogate fit](results/surrogate_benchmark_gemma4_e4b/surrogate_ppl_fit.png)
+![Gemma-4-E4B surrogate curve](results/surrogate_benchmark_gemma4_e4b/surrogate_ppl_fit.png)
 
 ## Reproduce
 
@@ -238,7 +261,11 @@ python -m src.benchmark_surrogate `
 |   |-- benchmark_surrogate.py
 |   |-- real_llm_profile.py
 |   |-- real_llm_layer_calibration.py
-|   `-- make_visuals.py
+|   `-- reports/
+|       |-- make_autoreg_report.py
+|       |-- make_k_sweep_report.py
+|       |-- make_multi_model_surrogate_report.py
+|       `-- make_visuals.py
 |-- results/
 |   |-- qwen3_0p6b_real_profile/
 |   |-- qwen35_4b_real_profile_v2/
@@ -249,14 +276,18 @@ python -m src.benchmark_surrogate `
 |   |-- benchmark_layer_calibrated_hard_k256_5seed/
 |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
 |   |-- benchmark_gemma4_e4b_teacher/
+|   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   |-- surrogate_benchmark_qwen3_0p6b/
+|   |-- surrogate_benchmark_qwen35_4b_v2/
 |   |-- surrogate_benchmark_gemma4_e4b/
-|   `-- visuals_layer_calibrated_hard_k256/
+|   |-- surrogate_benchmark_multi_model_report.md
+|   |-- visuals_layer_calibrated_hard_k256/
+|   `-- visuals_qwen35_teacher_big/
 |-- requirements.txt
 `-- README.md
 ```
 
-Generated experiment outputs are ignored by default. The repository tracks only curated checkpoints, profile files, benchmark reports, validation reports, and README figures.
+Generated experiment outputs are ignored by default. The repository tracks only curated best checkpoints, profile files, benchmark summaries/reports, validation reports, surrogate summaries, and README figures. Raw training logs, per-state benchmark rows, teacher caches, stdout/stderr logs, smoke runs, and non-best checkpoints are intentionally not tracked.
 
 ## Setup
 

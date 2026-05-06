@@ -234,13 +234,52 @@ def fit_gamma(drop_rates: list[float], ppls: list[float], ppl_ref: float) -> tup
     return gamma, float(r2), rmse
 
 
+def fit_piecewise_curve(drop_rates: list[float], ppls: list[float], ppl_ref: float) -> tuple[np.ndarray, np.ndarray, float, float]:
+    xs = np.asarray(drop_rates, dtype=np.float64)
+    ys = np.log(np.maximum(np.asarray(ppls, dtype=np.float64), 1e-9) / max(ppl_ref, 1e-9))
+    order = np.argsort(xs)
+    xs = xs[order]
+    ys = ys[order]
+    if xs.size == 0:
+        return xs, ys, 0.0, 0.0
+    pred = ys.copy()
+    residual = ys - pred
+    ss_res = float(np.sum(residual**2))
+    ss_tot = float(np.sum((ys - float(np.mean(ys))) ** 2))
+    r2 = 1.0 if ss_tot <= 0 else 1.0 - ss_res / ss_tot
+    rmse = float(np.sqrt(np.mean(residual**2))) if residual.size else 0.0
+    return xs, ys, float(r2), float(rmse)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/real_llm.yaml")
     parser.add_argument("--skip-download", action="store_true")
+    parser.add_argument("--out-dir", default=None)
+    parser.add_argument("--drop-rates", default=None)
+    parser.add_argument("--corruption-trials", type=int, default=None)
+    parser.add_argument("--max-length", type=int, default=None)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--num-texts", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--fit-model", default="auto", choices=["auto", "linear", "piecewise"])
     args = parser.parse_args()
 
     cfg = load_yaml(args.config)
+    if args.out_dir is not None:
+        cfg["output_dir"] = args.out_dir
+    if args.drop_rates is not None:
+        cfg["drop_rates"] = [float(x) for x in str(args.drop_rates).split(",") if str(x).strip()]
+    if args.corruption_trials is not None:
+        cfg["corruption_trials"] = int(args.corruption_trials)
+    if args.max_length is not None:
+        cfg["max_length"] = int(args.max_length)
+    if args.batch_size is not None:
+        cfg["batch_size"] = int(args.batch_size)
+    if args.num_texts is not None:
+        cfg["num_texts"] = int(args.num_texts)
+    if args.seed is not None:
+        cfg["seed"] = int(args.seed)
     set_seed(int(cfg["seed"]))
     out_dir = ensure_dir(cfg["output_dir"])
     device = torch.device(cfg["device"] if cfg["device"] == "cuda" and torch.cuda.is_available() else "cpu")
@@ -273,6 +312,7 @@ def main() -> None:
     drop_rates = [float(x) for x in cfg["drop_rates"]]
     rows = []
     for drop in drop_rates:
+        print(f"profiling_embedding_drop={drop:.6f}", flush=True)
         ppls = []
         for trial in range(int(cfg["corruption_trials"])):
             handle = attach_embedding_corruption(model, drop, int(cfg["seed"]) + trial + int(drop * 10000))
@@ -280,9 +320,27 @@ def main() -> None:
                 ppls.append(compute_ppl(model, tokenizer, texts, device, int(cfg["max_length"]), int(cfg["batch_size"])))
             finally:
                 handle.remove()
+            print(
+                f"drop={drop:.6f} trial={trial + 1}/{int(cfg['corruption_trials'])} ppl={float(ppls[-1]):.6f}",
+                flush=True,
+            )
         rows.append({"drop_rate": drop, "ppl_mean": float(np.mean(ppls)), "ppl_std": float(np.std(ppls)), "trials": ppls})
 
-    gamma, fit_r2, fit_rmse = fit_gamma([r["drop_rate"] for r in rows], [r["ppl_mean"] for r in rows], ppl_ref)
+    drop_rates_eval = [float(r["drop_rate"]) for r in rows]
+    ppls_eval = [float(r["ppl_mean"]) for r in rows]
+    gamma, linear_r2, linear_rmse = fit_gamma(drop_rates_eval, ppls_eval, ppl_ref)
+    xs_curve, ys_curve, piecewise_r2, piecewise_rmse = fit_piecewise_curve(drop_rates_eval, ppls_eval, ppl_ref)
+    chosen_model = str(args.fit_model)
+    if chosen_model == "auto":
+        chosen_model = "linear" if linear_r2 >= 0.99 else "piecewise"
+    if chosen_model == "linear":
+        fit_r2 = linear_r2
+        fit_rmse = linear_rmse
+        curve_log_ratio = gamma * xs_curve
+    else:
+        fit_r2 = piecewise_r2
+        fit_rmse = piecewise_rmse
+        curve_log_ratio = ys_curve
     summary = RealProfileSummary(
         model_id=model_id,
         num_layers=config_int(config, "num_hidden_layers"),
@@ -301,11 +359,24 @@ def main() -> None:
         fitted_gamma=gamma,
     )
     summary_dict = asdict(summary)
+    summary_dict["surrogate_fit_model"] = chosen_model
+    summary_dict["surrogate_curve_points"] = int(len(xs_curve))
+    summary_dict["surrogate_linear_r2"] = linear_r2
+    summary_dict["surrogate_linear_rmse_log_ratio"] = linear_rmse
     summary_dict["surrogate_fit_r2"] = fit_r2
     summary_dict["surrogate_fit_rmse_log_ratio"] = fit_rmse
 
     (out_dir / "real_profile_summary.json").write_text(json.dumps(summary_dict, indent=2), encoding="utf-8")
     (out_dir / "ppl_corruption_curve.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
+    surrogate_curve = {
+        "type": "scalar_curve_v1",
+        "fit_model": chosen_model,
+        "source": (out_dir / "real_profile_summary.json").as_posix(),
+        "ppl_ref": float(ppl_ref),
+        "x": [float(x) for x in xs_curve.tolist()],
+        "y_log_ratio": [float(y) for y in curve_log_ratio.tolist()],
+    }
+    (out_dir / "ppl_surrogate_curve.json").write_text(json.dumps(surrogate_curve, indent=2), encoding="utf-8")
     np.save(out_dir / "layer_params.npy", np.asarray(layer_params, dtype=np.int64))
     print(json.dumps(summary_dict, indent=2), flush=True)
     print(json.dumps(rows, indent=2), flush=True)

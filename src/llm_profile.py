@@ -36,6 +36,67 @@ def load_ppl_surrogate(path: str | Path) -> dict[str, Any]:
     return surrogate
 
 
+def load_curve_surrogate(path: str | Path) -> dict[str, Any]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    xs = np.asarray(payload["x"], dtype=np.float64)
+    ys = np.asarray(payload["y_log_ratio"], dtype=np.float64)
+    if xs.ndim != 1 or ys.ndim != 1 or xs.shape != ys.shape or xs.size < 2:
+        raise ValueError(f"{path} must contain matching one-dimensional x and y_log_ratio arrays")
+    order = np.argsort(xs)
+    xs = xs[order]
+    ys = ys[order]
+    keep = np.concatenate([[True], np.diff(xs) > 1e-12])
+    xs = xs[keep]
+    ys = ys[keep]
+    if xs.size < 2:
+        raise ValueError(f"{path} must contain at least two distinct curve points")
+    return {
+        "type": str(payload.get("type", "scalar_curve_v1")),
+        "x": xs,
+        "y_log_ratio": ys,
+        "fit_model": str(payload.get("fit_model", "empirical_piecewise_linear")),
+        "source": str(payload.get("source", "")),
+    }
+
+
+def _curve_predict_log_ratio_np(surrogate: dict[str, Any], damage: np.ndarray | float) -> np.ndarray:
+    xs = np.asarray(surrogate["x"], dtype=np.float64)
+    ys = np.asarray(surrogate["y_log_ratio"], dtype=np.float64)
+    values = np.asarray(damage, dtype=np.float64)
+    clipped = np.clip(values, xs[0], xs[-1])
+    return np.interp(clipped, xs, ys)
+
+
+def _curve_torch_cache(surrogate: dict[str, Any], device: torch.device, dtype: torch.dtype) -> dict[str, torch.Tensor]:
+    cache_root = surrogate.setdefault("_torch_cache", {})
+    dev_index = "cpu" if device.type == "cpu" else str(device.index if device.index is not None else 0)
+    key = f"curve:{device.type}:{dev_index}:{str(dtype).replace('torch.', '')}"
+    cached = cache_root.get(key)
+    if cached is not None:
+        return cached
+    cached = {
+        "x": torch.as_tensor(np.asarray(surrogate["x"], dtype=np.float32), dtype=dtype, device=device),
+        "y": torch.as_tensor(np.asarray(surrogate["y_log_ratio"], dtype=np.float32), dtype=dtype, device=device),
+    }
+    cache_root[key] = cached
+    return cached
+
+
+def _curve_predict_log_ratio_torch(surrogate: dict[str, Any], damage: torch.Tensor) -> torch.Tensor:
+    cache = _curve_torch_cache(surrogate, damage.device, damage.dtype)
+    xs = cache["x"]
+    ys = cache["y"]
+    clipped = torch.clamp(damage, min=float(xs[0].detach().cpu()), max=float(xs[-1].detach().cpu()))
+    idx = torch.searchsorted(xs, clipped, right=True) - 1
+    idx = torch.clamp(idx, min=0, max=xs.numel() - 2)
+    x0 = xs[idx]
+    x1 = xs[idx + 1]
+    y0 = ys[idx]
+    y1 = ys[idx + 1]
+    t = (clipped - x0) / torch.clamp(x1 - x0, min=torch.finfo(damage.dtype).eps)
+    return y0 + t * (y1 - y0)
+
+
 def _mlp_predict_contrib_np(surrogate: dict[str, Any], residuals: np.ndarray) -> np.ndarray:
     residuals = np.asarray(residuals, dtype=np.float64)
     input_scale = float(surrogate.get("input_scale", 1.0))
@@ -94,6 +155,11 @@ def ppl_hat_from_residuals(profile: LLMProfile, residuals: np.ndarray, linear_da
     surrogate = profile.ppl_surrogate
     if surrogate and surrogate.get("type") == "layer_onehot_mlp_v1":
         log_ratio = float(np.sum(_mlp_predict_contrib_np(surrogate, residuals)))
+    elif surrogate and surrogate.get("type") == "scalar_curve_v1":
+        if linear_damage is None:
+            residuals = np.asarray(residuals, dtype=np.float64)
+            linear_damage = float(np.sum(profile.importance * residuals))
+        log_ratio = float(_curve_predict_log_ratio_np(surrogate, float(linear_damage)))
     else:
         if linear_damage is None:
             residuals = np.asarray(residuals, dtype=np.float64)
@@ -121,6 +187,10 @@ def ppl_hat_from_residuals_torch(profile: LLMProfile, residuals: torch.Tensor) -
             h = F.silu(h @ cache["weights"][idx].T + cache["biases"][idx])
         gamma = F.softplus((h @ cache["w_out"].T + cache["b_out"]).reshape(leading.shape[0], n))
         log_ratio = torch.sum(leading * gamma, dim=1).reshape(residuals.shape[:-1])
+    elif surrogate and surrogate.get("type") == "scalar_curve_v1":
+        importance = torch.as_tensor(profile.importance, dtype=residuals.dtype, device=residuals.device)
+        damage = torch.sum(importance * residuals, dim=-1)
+        log_ratio = _curve_predict_log_ratio_torch(surrogate, damage)
     else:
         importance = torch.as_tensor(profile.importance, dtype=residuals.dtype, device=residuals.device)
         damage = torch.sum(importance * residuals, dim=-1)
@@ -236,6 +306,9 @@ def build_real_calibrated_profile(cfg: dict, real_dir: str | Path, rng: np.rando
         got = int(ppl_surrogate.get("num_boundaries", expected))
         if got != expected:
             raise ValueError(f"{surrogate_path} has num_boundaries={got}, expected {expected}")
+    curve_path = real_path / "ppl_surrogate_curve.json"
+    if ppl_surrogate is None and surrogate_mode in {"auto", "curve", "scalar_curve", "embedding_curve"} and curve_path.exists():
+        ppl_surrogate = load_curve_surrogate(curve_path)
     cycles_scale = mem_bytes / max(float(np.mean(mem_bytes)), 1.0)
     compute_cycles = float(np.mean(base.compute_cycles)) * cycles_scale
 

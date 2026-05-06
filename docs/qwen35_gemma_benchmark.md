@@ -1,6 +1,7 @@
-# Qwen3.5-4B and Gemma-4-E4B-it Benchmark
+# Qwen3.5-4B and Gemma Benchmark
 
 This benchmark was run on branch `qwen35-gemma-explore`. The original Qwen3-0.6B experiment is unchanged and preserved by tag `v0.6b-stable`.
+The README now tracks the base `google/gemma-4-E4B` profile and benchmark; the older `-it` profile below is retained only as historical deployment context.
 
 ## Deployment Smoke Tests
 
@@ -104,4 +105,4 @@ Hard-state replay check:
 
 Qwen3.5-4B is deployable on this desktop for profiling and simulator experiments. The v2 surrogate is much stronger than the first quick calibration. Expanded teacher-assisted v2 training uses strong baseline actions only as supervised replay during training; at benchmark time, `autoreg_rl_pure` still samples only from the learned policy. This improves the earlier teacher run from `51.25%` win/tie to `82.50%` win/tie against the best non-RL baseline on the 80-state benchmark.
 
-Gemma-4-E4B-it can be loaded, but the current text-only PPL evaluation is not valid enough for RL benchmarking. The next step for Gemma would be to fix model-specific prompting/tokenization and verify a reasonable clean PPL before running layer-wise calibration.
+The older Gemma-4-E4B-it run could be loaded, but its text-only PPL evaluation was not valid enough for RL benchmarking. The current tracked Gemma experiment uses the base `google/gemma-4-E4B` config and should still be treated as exploratory because its surrogate fit is weak.
