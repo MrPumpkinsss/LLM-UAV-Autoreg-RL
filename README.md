@@ -123,88 +123,44 @@ Profile calibration:
 
 ## Benchmark
 
-The current policy is trained with `k=256` candidates and hard-state weighted replay. Hard states are the benchmark states where the previous pure RL policy lost to the best non-RL baseline; they are sampled more often during training and weighted by loss size. This changes the training distribution only. At inference time, `autoreg_rl_pure` still samples candidates only from the learned policy and does not insert strong heuristic actions.
+There are three different benchmark layers in this repository. The simulator benchmark is the main policy-comparison benchmark and uses the calibrated surrogate `PPL_hat`. Real-LLM validation then loads the model and recomputes PPL for selected deployment actions. Surrogate calibration measures whether the fitted PDP-to-PPL model is trustworthy before running policy benchmarks.
 
-The strongest baseline set includes `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`. Runtime is measured separately for every method.
-
-| method | reward | feasible | latency | PPL | runtime_s | margin | win/tie |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| autoreg_rl_pure_k256_hard | -0.497273 +/- 0.791419 | 1.0000 | 2.6278 | 48.8752 | 0.03475 | 0.001844 | 0.8125 |
-| hybrid_heuristic | -0.499117 +/- 0.787499 | 1.0000 | 2.6578 | 48.7862 | 0.01226 |  |  |
-| block_lns_strong | -0.499191 +/- 0.787523 | 1.0000 | 2.6519 | 48.8368 | 0.06524 |  |  |
-| block_beam_strong | -0.584792 +/- 1.109608 | 1.0000 | 2.7353 | 54.7887 | 0.30765 |  |  |
-| simulated_annealing | -13.754920 +/- 31.010895 | 0.8906 | 18.0197 | 1.3716e29 | 0.00682 |  |  |
-| local_search | -13.771714 +/- 31.006918 | 0.8906 | 18.0157 | 1.3716e29 | 0.01457 |  |  |
-| beam_search | -17.326284 +/- 290.588877 | 1.0000 | 2.8847 | 1343.2341 | 0.03031 |  |  |
-| random | -100.000000 +/- 0.000000 | 0.0000 | 110.9442 | 5.0923e32 | 0.02311 |  |  |
-| pdp_aware_greedy | -1076.841052 +/- 10055.860361 | 0.9969 | 3.4499 | 1338960.5587 | 0.00033 |  |  |
-| block_balanced | -13061686.697982 +/- 112969291.344464 | 0.8281 | 14.6489 | 4.0152e12 | 0.00008 |  |  |
-| latency_greedy | -127873524.298005 +/- 952102671.473644 | 0.9250 | 9.7239 | 3.7472e10 | 0.00007 |  |  |
-
-Hard-state replay changed the mean margin from `-0.000632` to `+0.001844` and the win/tie rate from `0.7781` to `0.8125`. On the 71 replayed hard states, mean margin improved from `-0.047767` to `-0.025147`.
-
-Pre-hard-replay candidate-budget sweep:
-
-| k | mean margin | min margin | win/tie | strict win | runtime_s |
-|---:|---:|---:|---:|---:|---:|
-| 16 | -0.13527882 | -13.85941523 | 0.3656 | 0.0625 | 0.02870 |
-| 64 | -0.04158387 | -7.88135706 | 0.5781 | 0.1062 | 0.03312 |
-| 128 | -0.00694286 | -1.12779709 | 0.6750 | 0.1344 | 0.03698 |
-| 256 | -0.00063242 | -1.06510871 | 0.7781 | 0.1500 | 0.04297 |
-
-Under the stricter layer-wise PPL surrogate, `k=256` with hard-state weighted training is the recommended operating point. It beats the best strong heuristic on mean reward while using only learned-policy candidates, and it has lower mean latency than the top heuristic.
-
-## Real LLM Validation
-
-Action-level validation loads Qwen3-0.6B and computes real PPL for actual actions selected by RL and strong heuristics. The validation is stored in `results/real_action_ppl_validation_layer_calibrated_retrained`.
-
-| scope | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
-|---|---:|---:|---:|---:|---:|---:|
-| non-random competitive | 64 | 0.023323 | 0.216265 | 0.052984 | 0.996233 | 0.973764 |
-
-Per method:
-
-| method | rows | mean rel error | max rel error | Pearson | Spearman |
-|---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | 16 | 0.024563 | 0.113034 | 0.998831 | 0.973529 |
-| block_beam_strong | 16 | 0.026895 | 0.216265 | 0.997296 | 0.970588 |
-| block_lns_strong | 16 | 0.024521 | 0.199763 | 0.997366 | 0.976471 |
-| hybrid_heuristic | 16 | 0.017314 | 0.134010 | 0.998837 | 0.976471 |
-
-Random high-transition actions are kept in the report as out-of-distribution stress cases. They can exceed the calibrated drop range and produce very large exponential extrapolation errors, so the main validation metric is the non-random competitive subset.
-
-## Larger Model Benchmark
-
-These results are experimental and are stored in `docs/qwen35_gemma_benchmark.md`. They were run on branch `qwen35-gemma-explore`; the Qwen3-0.6B result above remains the main result.
-
-Deployment/profile status:
-
-| model | status | real profile | notes |
+| model | simulator surrogate benchmark | real LLM action-level validation | surrogate calibration status |
 |---|---|---|---|
-| `Qwen/Qwen3.5-4B` | loads and runs a short forward pass | usable | 8.68 GiB weights; about 6.73 GiB VRAM remained after load |
-| `google/gemma-4-E4B-it` | loads and runs a short forward pass | not reliable yet | 14.89 GiB weights; Transformers used CPU offload for some parameters |
+| `Qwen/Qwen3-0.6B` | main result, `320` states, RL win/tie `0.8125` vs best non-RL | done, `64` competitive action rows, mean rel error `0.023323` | good: layer R2 `0.982527`, RMSE log-ratio `0.018681` |
+| `Qwen/Qwen3.5-4B` | experimental, `80` states, RL win/tie `0.8250` vs best non-RL | not run yet for action-level PPL validation | good v2 profile: layer R2 `0.995787`, RMSE log-ratio `0.006596` |
+| `google/gemma-4-E4B-it` | not reported | not run | not reliable: clean PPL `32287.1`, embedding surrogate R2 `< 0` |
 
-Qwen3.5-4B high-quality layer calibration:
+### Simulator Surrogate Benchmarks
 
-| metric | value |
-|---|---:|
-| layers | 32 |
-| clean PPL | 12.388740 |
-| sample count | 64 |
-| max length | 128 |
-| corruption trials | 3 |
-| drop rates | 0.0, 0.005, 0.01, 0.02, 0.03, 0.05 |
-| fitted gamma sum | 206.094048 |
-| fitted R2 | 0.995787 |
-| RMSE log-ratio | 0.006596 |
+These benchmarks compare RL against strong non-RL deployment baselines inside the LLM-UAV simulator. The PPL column is `PPL_hat`, computed by the calibrated surrogate, not by loading the LLM for every simulator state.
 
-The earlier quick calibration used only `16` texts, `64` tokens, and `1` corruption trial; its layer R2 was `0.856720`. The v2 profile in `results/qwen35_4b_real_profile_v2` is the recommended 4B profile. An optional MLP surrogate is also trained from the same calibration curve (`R2 = 0.999725`, RMSE log-ratio `0.001998`), but the benchmark keeps the linear layer-gamma surrogate because it is more interpretable and monotonic outside the calibrated drop range.
+| model | artifact | states | policy | reward | best non-RL reward | latency | PPL_hat | runtime_s | margin | win/tie |
+|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| Qwen3-0.6B | `results/benchmark_layer_calibrated_hard_k256_5seed` | 320 | `autoreg_rl_pure_k256_hard` | -0.497273 +/- 0.791419 | -0.499117 | 2.6278 | 48.8752 | 0.03475 | +0.001844 | 0.8125 |
+| Qwen3.5-4B | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` | 80 | `autoreg_rl_pure` | -0.146974 +/- 0.047001 | -0.147090 | 4.4509 | 12.8052 | 0.05259 | +0.000116 | 0.8250 |
 
-Qwen3.5-4B benchmark setting: `5` seeds, `16` states per seed, `80` total states, `k=256` RL candidates, beam width `32`, and `128` annealing steps. The recommended checkpoint is `results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt`, and the benchmark artifact is `results/benchmark_qwen35_4b_v2_teacher_big_5seed`.
+For Qwen3-0.6B, the strongest baseline set includes `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`. Runtime is measured separately for every method.
 
-The 4B policy uses expanded teacher-assisted training: it warm-starts from the previous teacher checkpoint, collects `1000` teacher states, runs `1000` teacher replay updates, and then trains for `2000` RL episodes. At benchmark time, `autoreg_rl_pure` still samples candidates only from the learned policy and projection; teacher or heuristic actions are not inserted into the RL candidate pool.
+Qwen3-0.6B method table:
 
-| method | reward | feasible | latency | PPL | runtime_s |
+| method | reward | feasible | latency | PPL_hat | runtime_s |
+|---|---:|---:|---:|---:|---:|
+| autoreg_rl_pure_k256_hard | -0.497273 +/- 0.791419 | 1.0000 | 2.6278 | 48.8752 | 0.03475 |
+| hybrid_heuristic | -0.499117 +/- 0.787499 | 1.0000 | 2.6578 | 48.7862 | 0.01226 |
+| block_lns_strong | -0.499191 +/- 0.787523 | 1.0000 | 2.6519 | 48.8368 | 0.06524 |
+| block_beam_strong | -0.584792 +/- 1.109608 | 1.0000 | 2.7353 | 54.7887 | 0.30765 |
+| simulated_annealing | -13.754920 +/- 31.010895 | 0.8906 | 18.0197 | 1.3716e29 | 0.00682 |
+| local_search | -13.771714 +/- 31.006918 | 0.8906 | 18.0157 | 1.3716e29 | 0.01457 |
+| beam_search | -17.326284 +/- 290.588877 | 1.0000 | 2.8847 | 1343.2341 | 0.03031 |
+| random | -100.000000 +/- 0.000000 | 0.0000 | 110.9442 | 5.0923e32 | 0.02311 |
+| pdp_aware_greedy | -1076.841052 +/- 10055.860361 | 0.9969 | 3.4499 | 1338960.5587 | 0.00033 |
+| block_balanced | -13061686.697982 +/- 112969291.344464 | 0.8281 | 14.6489 | 4.0152e12 | 0.00008 |
+| latency_greedy | -127873524.298005 +/- 952102671.473644 | 0.9250 | 9.7239 | 3.7472e10 | 0.00007 |
+
+Qwen3.5-4B method table:
+
+| method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
 | autoreg_rl_pure | -0.146974 | 1.0000 | 4.4509 | 12.8052 | 0.05259 |
 | hybrid_heuristic | -0.147090 | 1.0000 | 4.4668 | 12.7940 | 0.01355 |
@@ -214,9 +170,71 @@ The 4B policy uses expanded teacher-assisted training: it warm-starts from the p
 | local_search | -0.849439 | 1.0000 | 5.1624 | 33.9007 | 0.01624 |
 | beam_search | -3.568186 | 1.0000 | 4.7848 | 118.4562 | 0.06955 |
 
-RL vs best non-RL baseline on Qwen3.5-4B v2 teacher-big: mean margin `+0.000116`, min margin `-0.014858`, win/tie rate `0.8250`, strict win rate `0.1250`. A follow-up hard-state replay run was also tested, but it reduced the mean margin to `-0.000134` and win/tie rate to `0.7750`, so the teacher-big checkpoint is the recommended 4B checkpoint.
+Qwen3-0.6B candidate-budget sweep before hard-state replay:
 
-Gemma-4-E4B-it deploys, but the current text-only PPL evaluation gives clean PPL `32287.1` and a negative embedding surrogate R2. That means the current tokenizer/prompt/PPL pipeline is not valid enough for simulator or RL comparison; Gemma benchmark results should wait until the Gemma-specific PPL evaluation is fixed.
+| k | mean margin | min margin | win/tie | strict win | runtime_s |
+|---:|---:|---:|---:|---:|---:|
+| 16 | -0.13527882 | -13.85941523 | 0.3656 | 0.0625 | 0.02870 |
+| 64 | -0.04158387 | -7.88135706 | 0.5781 | 0.1062 | 0.03312 |
+| 128 | -0.00694286 | -1.12779709 | 0.6750 | 0.1344 | 0.03698 |
+| 256 | -0.00063242 | -1.06510871 | 0.7781 | 0.1500 | 0.04297 |
+
+Hard-state replay changed the Qwen3-0.6B mean margin from `-0.000632` to `+0.001844` and the win/tie rate from `0.7781` to `0.8125`. On the 71 replayed hard states, mean margin improved from `-0.047767` to `-0.025147`.
+
+### Real LLM Validation
+
+Real LLM validation loads the model and recomputes paper-formula PPL for selected deployment actions. This is much slower than the simulator benchmark, so it is used to validate surrogate quality rather than to train or evaluate every benchmark state.
+
+Real-LLM profile and loading results:
+
+| model | real profile artifact | clean PPL | forward latency | status |
+|---|---|---:|---:|---|
+| Qwen3-0.6B | `results/qwen3_0p6b_real_profile` | 30.811979 | 30.24 ms | usable, main validated model |
+| Qwen3.5-4B | `results/qwen35_4b_real_profile_v2` | 12.388740 | 167.91 ms | usable simulator profile, action-level validation pending |
+| Gemma-4-E4B-it | `results/gemma4_e4b_it_real_profile` | 32287.077197 | 1624.34 ms | loads, but PPL pipeline is not reliable |
+
+| model | artifact | rows | methods | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman | status |
+|---|---|---:|---|---:|---:|---:|---:|---:|---|
+| Qwen3-0.6B | `results/real_action_ppl_validation_layer_calibrated_retrained` | 64 competitive | RL + 3 strong baselines | 0.023323 | 0.216265 | 0.052984 | 0.996233 | 0.973764 | validated |
+| Qwen3.5-4B | not available | 0 | - | - | - | - | - | - | pending |
+| Gemma-4-E4B-it | not available | 0 | - | - | - | - | - | - | blocked by invalid clean PPL |
+
+Qwen3-0.6B real-LLM validation by method:
+
+| method | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
+|---|---:|---:|---:|---:|---:|---:|
+| autoreg_rl_pure | 16 | 0.024563 | 0.113034 | 0.045242 | 0.998831 | 0.973529 |
+| block_beam_strong | 16 | 0.026895 | 0.216265 | 0.064827 | 0.997296 | 0.970588 |
+| block_lns_strong | 16 | 0.024521 | 0.199763 | 0.059132 | 0.997366 | 0.976471 |
+| hybrid_heuristic | 16 | 0.017314 | 0.134010 | 0.038514 | 0.998837 | 0.976471 |
+
+Random high-transition actions are kept in the real-LLM report as out-of-distribution stress cases. They can exceed the calibrated drop range and produce very large exponential extrapolation errors, so the main validation metric is the non-random competitive subset.
+
+### Surrogate Calibration Benchmarks
+
+Surrogate calibration is the model-level check that real LLM PPL behaves predictably under controlled hidden-state corruption. These results determine whether a model is usable for the simulator benchmark.
+
+| model | clean PPL | layer gamma sum | layer R2 | RMSE log-ratio | action-level real validation | simulator status |
+|---|---:|---:|---:|---:|---|---|
+| Qwen3-0.6B | 30.811979 | 293.322997 | 0.982527 | 0.018681 | done | main benchmark |
+| Qwen3.5-4B v2 | 12.388740 | 206.094048 | 0.995787 | 0.006596 | pending | experimental benchmark |
+| Gemma-4-E4B-it | 32287.077197 | n/a | n/a | n/a | not run | blocked |
+
+The standalone Qwen3-0.6B surrogate curve benchmark is stored in `results/surrogate_benchmark`. It validates the exponential PPL model against measured Qwen3-0.6B PPL under controlled corruption before the simulator benchmark and real action-level validation.
+
+| metric | value |
+|---|---:|
+| PPL_ref | 30.811979 |
+| gamma | 10.898646 |
+| layer gamma sum | 293.322997 |
+| layer mean R2 | 0.982527 |
+| R2 log-ratio | 0.997363 |
+| RMSE log-ratio | 0.019289 |
+| MAE PPL | 0.797233 |
+| mean relative PPL error | 0.015285 |
+| max relative PPL error | 0.030760 |
+
+Gemma-4-E4B-it can be loaded, but the current text-only PPL evaluation gives clean PPL `32287.1` and a negative embedding surrogate R2. That means the current tokenizer/prompt/PPL pipeline is not valid enough for simulator or RL comparison; Gemma benchmark results should wait until the Gemma-specific PPL evaluation is fixed.
 
 ## Visuals
 
@@ -245,22 +263,6 @@ Gemma-4-E4B-it deploys, but the current text-only PPL evaluation gives clean PPL
 [Visual summary](results/visuals_qwen35_teacher_big/visual_summary.md)
 
 ![Surrogate PPL fit](results/surrogate_benchmark/surrogate_ppl_fit.png)
-
-## Surrogate Benchmark
-
-The surrogate benchmark is stored in `results/surrogate_benchmark`. It validates the exponential PPL model against measured Qwen3-0.6B PPL under controlled corruption before the simulator benchmark and real action-level validation.
-
-| metric | value |
-|---|---:|
-| PPL_ref | 30.811979 |
-| gamma | 10.898646 |
-| layer gamma sum | 293.322997 |
-| layer mean R2 | 0.982527 |
-| R2 log-ratio | 0.997363 |
-| RMSE log-ratio | 0.019289 |
-| MAE PPL | 0.797233 |
-| mean relative PPL error | 0.015285 |
-| max relative PPL error | 0.030760 |
 
 ## Reproduce
 
