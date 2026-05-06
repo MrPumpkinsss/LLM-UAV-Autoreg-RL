@@ -1,0 +1,47 @@
+loaded_init_policy=results/autoreg_rl_gemma4_e4b/autoreg_policy_best.pt
+teacher_pretrain states=1024 updates=1200
+teacher_collected=500/1024 reward_mean=-0.2756
+teacher_collected=1000/1024 reward_mean=-0.2762
+teacher_update=200 eval_reward=-0.2741 eval_feas=1.000 batch=512 loss=0.1412 elapsed=878.5s
+teacher_update=400 eval_reward=-0.2742 eval_feas=1.000 batch=512 loss=0.0899 elapsed=905.9s
+teacher_update=600 eval_reward=-0.2742 eval_feas=1.000 batch=512 loss=0.0670 elapsed=931.8s
+teacher_update=800 eval_reward=-0.2746 eval_feas=1.000 batch=512 loss=0.0657 elapsed=956.9s
+teacher_update=1000 eval_reward=-0.2744 eval_feas=1.000 batch=512 loss=0.0625 elapsed=983.8s
+teacher_update=1200 eval_reward=-0.2749 eval_feas=1.000 batch=512 loss=0.0574 elapsed=1011.8s
+autoreg_rl device=cuda episodes=800 batch_states=8 candidates=96
+episode=0001 train_reward=-0.2791 eval_reward=-0.2750 eval_feas=1.000 eval_latency=9.083s cand_feas=0.997 loss=-1.9751 buffer=2761 elapsed=1020.2s
+episode=0050 train_reward=-0.2686 eval_reward=-0.2745 eval_feas=1.000 eval_latency=9.054s cand_feas=0.997 loss=-1.3382 buffer=5897 elapsed=1036.9s
+episode=0100 train_reward=-0.2794 eval_reward=-0.2742 eval_feas=1.000 eval_latency=9.058s cand_feas=1.000 loss=-1.5442 buffer=9097 elapsed=1053.7s
+episode=0150 train_reward=-0.2865 eval_reward=-0.2741 eval_feas=1.000 eval_latency=9.060s cand_feas=0.997 loss=-2.4620 buffer=12297 elapsed=1070.9s
+episode=0200 train_reward=-0.2530 eval_reward=-0.2738 eval_feas=1.000 eval_latency=9.045s cand_feas=1.000 loss=-2.1537 buffer=15497 elapsed=1087.5s
+episode=0250 train_reward=-0.2695 eval_reward=-0.2737 eval_feas=1.000 eval_latency=9.044s cand_feas=0.996 loss=-0.8469 buffer=18697 elapsed=1104.1s
+episode=0300 train_reward=-0.2746 eval_reward=-0.2736 eval_feas=1.000 eval_latency=9.045s cand_feas=0.999 loss=-1.1442 buffer=21897 elapsed=1121.7s
+episode=0350 train_reward=-0.2695 eval_reward=-0.2741 eval_feas=1.000 eval_latency=9.054s cand_feas=1.000 loss=-0.5944 buffer=25097 elapsed=1139.4s
+episode=0400 train_reward=-0.2751 eval_reward=-0.2740 eval_feas=1.000 eval_latency=9.054s cand_feas=0.999 loss=-1.1338 buffer=28297 elapsed=1156.6s
+episode=0450 train_reward=-0.3069 eval_reward=-0.2738 eval_feas=1.000 eval_latency=9.047s cand_feas=0.995 loss=-0.7077 buffer=31497 elapsed=1173.9s
+episode=0500 train_reward=-0.2659 eval_reward=-0.2743 eval_feas=1.000 eval_latency=9.064s cand_feas=1.000 loss=-0.6281 buffer=34697 elapsed=1190.8s
+episode=0550 train_reward=-0.2901 eval_reward=-0.2744 eval_feas=1.000 eval_latency=9.068s cand_feas=0.999 loss=-1.0656 buffer=37897 elapsed=1207.9s
+episode=0600 train_reward=-0.2961 eval_reward=-0.2740 eval_feas=1.000 eval_latency=9.051s cand_feas=1.000 loss=-0.9809 buffer=41097 elapsed=1224.7s
+episode=0650 train_reward=-0.2788 eval_reward=-0.2741 eval_feas=1.000 eval_latency=9.056s cand_feas=0.988 loss=-0.6303 buffer=44297 elapsed=1241.7s
+episode=0700 train_reward=-0.2870 eval_reward=-0.2737 eval_feas=1.000 eval_latency=9.042s cand_feas=1.000 loss=-0.8010 buffer=47497 elapsed=1258.7s
+episode=0750 train_reward=-0.3016 eval_reward=-0.2738 eval_feas=1.000 eval_latency=9.045s cand_feas=1.000 loss=-0.6554 buffer=50697 elapsed=1275.6s
+episode=0800 train_reward=-0.2853 eval_reward=-0.2738 eval_feas=1.000 eval_latency=9.042s cand_feas=1.000 loss=-0.6350 buffer=53897 elapsed=1292.8s
+{
+  "episodes": 800,
+  "runtime_s": 1292.7650287151337,
+  "device": "cuda",
+  "teacher_reward_mean": -0.276304369641272,
+  "hard_states": 0,
+  "hard_margin_mean": null,
+  "hard_margin_min": null,
+  "hard_fraction": 0.0,
+  "final_eval": {
+    "reward": -0.2738077350994257,
+    "cost": 0.2738077350994257,
+    "latency_s": 9.041899804844295,
+    "ppl_hat": 10.813168739493534,
+    "feasible_rate": 1.0,
+    "feasible_candidates": 255.609375,
+    "episode": 800
+  }
+}

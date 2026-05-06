@@ -127,8 +127,9 @@ def load_llm(cfg_path: str | Path):
         model_id,
         cache_dir=cfg.get("cache_dir"),
         torch_dtype=dtype,
-        device_map={"": str(device)},
+        device_map=cfg.get("device_map", "auto"),
         trust_remote_code=True,
+        low_cpu_mem_usage=True,
     )
     model.eval()
     return cfg, model, tokenizer, device
@@ -258,7 +259,7 @@ def main() -> None:
     metrics = {
         "states": int(args.states),
         "methods": sorted(wanted_methods),
-        "real_dir": Path(args.real_dir).as_posix(),
+        "real_dir": resolve_real_dir(cfg, args.real_dir).as_posix(),
         "policy": Path(args.policy).as_posix(),
         "all": metric_block(rows),
         "competitive_non_random": metric_block(competitive_rows),
@@ -269,7 +270,7 @@ def main() -> None:
     lines = [
         "# Real Action-Level PPL Validation",
         "",
-        f"Real profile directory: `{Path(args.real_dir).as_posix()}`",
+        f"Real profile directory: `{resolve_real_dir(cfg, args.real_dir).as_posix()}`",
         f"Policy: `{Path(args.policy).as_posix()}`",
         f"Rows: `{metrics['all']['rows']}`",
         "",

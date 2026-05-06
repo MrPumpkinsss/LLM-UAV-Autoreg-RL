@@ -13,7 +13,7 @@ from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
-from .llm_profile import LLMProfile, build_qwen3_0p6b_profile
+from .llm_profile import LLMProfile, build_arch_profile
 
 
 def set_seed(seed: int) -> None:
@@ -38,6 +38,7 @@ def truncate_profile(profile: LLMProfile, num_layers: int) -> LLMProfile:
         / max(float(np.sum(profile.importance[: num_layers - 1])), 1e-12),
         ppl_ref=profile.ppl_ref,
         ppl_gamma=profile.ppl_gamma,
+        ppl_surrogate=profile.ppl_surrogate,
     )
 
 
@@ -97,7 +98,7 @@ def main() -> None:
     rng = np.random.default_rng(args.seed)
     out_dir = ensure_dir(args.out)
 
-    full_profile = build_qwen3_0p6b_profile(cfg["profile"], rng)
+    full_profile = build_arch_profile(cfg["profile"], rng)
     profile = truncate_profile(full_profile, args.num_layers)
     env = LLMUAVEnv(cfg, profile, rng)
 

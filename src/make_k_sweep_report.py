@@ -93,7 +93,7 @@ def main() -> None:
         "states": margins[16]["states"],
         "seeds": "91,92,93,94,95",
         "states_per_seed": 64,
-        "profile": "Qwen3-0.6B real profile",
+        "profile": "real profile",
         "num_uavs": 5,
         "num_layers": 28,
         "policy": args.policy,

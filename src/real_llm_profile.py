@@ -25,6 +25,7 @@ class RealProfileSummary:
     intermediate_size: int
     num_attention_heads: int
     num_key_value_heads: int
+    head_dim: int
     dtype: str
     total_params: int
     layer_param_mean: float
@@ -289,6 +290,7 @@ def main() -> None:
         intermediate_size=config_int(config, "intermediate_size"),
         num_attention_heads=config_int(config, "num_attention_heads"),
         num_key_value_heads=config_int(config, "num_key_value_heads"),
+        head_dim=config_int(config, "head_dim"),
         dtype=str(dtype).replace("torch.", ""),
         total_params=int(total_params),
         layer_param_mean=float(np.mean(layer_params)),

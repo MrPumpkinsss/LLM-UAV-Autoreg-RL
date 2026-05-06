@@ -14,7 +14,7 @@ from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark_timed
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
-from .llm_profile import LLMProfile, build_qwen3_0p6b_real_profile
+from .llm_profile import LLMProfile, build_real_calibrated_profile
 
 
 def set_seed(seed: int) -> None:
@@ -36,7 +36,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 
 
 def build_real_profile(cfg: dict, real_dir: Path, rng: np.random.Generator) -> LLMProfile:
-    return build_qwen3_0p6b_real_profile(cfg["profile"], real_dir, rng)
+    return build_real_calibrated_profile(cfg["profile"], real_dir, rng)
 
 
 def resolve_real_dir(cfg: dict, cli_real_dir: str | None) -> Path:
@@ -45,7 +45,7 @@ def resolve_real_dir(cfg: dict, cli_real_dir: str | None) -> Path:
     configured = cfg.get("profile", {}).get("real_profile_dir")
     if configured:
         return Path(str(configured))
-    return Path("results/qwen3_0p6b_real_profile")
+    return Path("results/real_profile")
 
 
 def main() -> None:
@@ -178,7 +178,7 @@ def main() -> None:
         f"# Real {profile.model_name} Profile Benchmark",
         "",
         f"States: `{margin_summary['states']}`",
-        f"Real profile directory: `{Path(args.real_dir).as_posix()}`",
+        f"Real profile directory: `{resolve_real_dir(cfg, args.real_dir).as_posix()}`",
         "",
         "| method | reward | feasible | latency | PPL | runtime_s |",
         "|---|---:|---:|---:|---:|---:|",

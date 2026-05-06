@@ -14,7 +14,7 @@ from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark, evaluate_full_benchmark_timed
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
-from .llm_profile import build_qwen3_0p6b_profile, build_qwen3_0p6b_real_profile, ppl_hat_from_residuals_torch
+from .llm_profile import build_arch_profile, build_real_calibrated_profile, ppl_hat_from_residuals_torch
 
 
 @dataclass(frozen=True)
@@ -312,9 +312,9 @@ def materialize_hard_states(
         seed_specs = sorted(seed_specs, key=lambda item: item.state_id)
         rng = np.random.default_rng(seed)
         if real_dir is not None:
-            profile = build_qwen3_0p6b_real_profile(cfg["profile"], real_dir, rng)
+            profile = build_real_calibrated_profile(cfg["profile"], real_dir, rng)
         else:
-            profile = build_qwen3_0p6b_profile(cfg["profile"], rng)
+            profile = build_arch_profile(cfg["profile"], rng)
         env = LLMUAVEnv(cfg, profile, rng)
         next_index = 0
         spec_index = 0
@@ -561,9 +561,9 @@ def main() -> None:
     (out_dir / "config_used.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
     if real_dir is not None:
-        profile = build_qwen3_0p6b_real_profile(cfg["profile"], real_dir, rng)
+        profile = build_real_calibrated_profile(cfg["profile"], real_dir, rng)
     else:
-        profile = build_qwen3_0p6b_profile(cfg["profile"], rng)
+        profile = build_arch_profile(cfg["profile"], rng)
     env = LLMUAVEnv(cfg, profile, rng)
     agent = AutoregRLAgent(env, cfg, str(ar_cfg.get("device", "cuda")), rng)
     if args.init_policy:

@@ -29,7 +29,7 @@ def save_curve(rows: list[dict], out_dir: Path) -> None:
     y_std = np.asarray([r["real_ppl_std"] for r in rows], dtype=np.float64)
 
     fig, ax = plt.subplots(figsize=(7.5, 5.0))
-    ax.errorbar(xs, y_real, yerr=y_std, fmt="o", color="#1f77b4", capsize=4, label="Real Qwen3-0.6B")
+    ax.errorbar(xs, y_real, yerr=y_std, fmt="o", color="#1f77b4", capsize=4, label="Real model")
     ax.plot(xs, y_pred, color="#d62728", lw=2.0, label="Exponential surrogate")
     ax.set_xlabel("Embedding Drop Rate")
     ax.set_ylabel("Perplexity")
@@ -42,7 +42,7 @@ def save_curve(rows: list[dict], out_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--real-dir", default="results/qwen3_0p6b_real_profile")
+    parser.add_argument("--real-dir", default="results/real_profile")
     parser.add_argument("--out", default="results/surrogate_benchmark")
     args = parser.parse_args()
 

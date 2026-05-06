@@ -128,18 +128,14 @@ def ppl_hat_from_residuals_torch(profile: LLMProfile, residuals: torch.Tensor) -
     return float(profile.ppl_ref) * torch.exp(torch.clamp(log_ratio, min=-60.0, max=60.0))
 
 
-def build_qwen3_0p6b_profile(cfg: dict, rng: np.random.Generator) -> LLMProfile:
-    """Build a lightweight Qwen3-0.6B per-layer profile.
-
-    The profile is derived from the public Qwen3-0.6B config and uses only
-    architecture-level metadata. It does not load model weights.
-    """
+def build_arch_profile(cfg: dict, rng: np.random.Generator) -> LLMProfile:
+    """Build a lightweight per-layer profile from architecture metadata."""
 
     n_layers = int(cfg["num_layers"])
     hidden = int(cfg["hidden_size"])
     intermediate = int(cfg["intermediate_size"])
     kv_heads = int(cfg["num_key_value_heads"])
-    head_dim = int(cfg["head_dim"])
+    head_dim = int(cfg.get("head_dim") or max(hidden // max(int(cfg["num_attention_heads"]), 1), 1))
     dtype_bytes = int(cfg["dtype_bytes"])
     seq_len = int(cfg["sequence_length"])
 
@@ -181,7 +177,11 @@ def build_qwen3_0p6b_profile(cfg: dict, rng: np.random.Generator) -> LLMProfile:
     )
 
 
-def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.random.Generator) -> LLMProfile:
+def build_qwen3_0p6b_profile(cfg: dict, rng: np.random.Generator) -> LLMProfile:
+    return build_arch_profile(cfg, rng)
+
+
+def build_real_calibrated_profile(cfg: dict, real_dir: str | Path, rng: np.random.Generator) -> LLMProfile:
     real_path = Path(real_dir)
     summary = json.loads((real_path / "real_profile_summary.json").read_text(encoding="utf-8"))
     layer_params = np.load(real_path / "layer_params.npy").astype(np.float64)
@@ -192,6 +192,13 @@ def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.rando
     profile_cfg["intermediate_size"] = int(summary["intermediate_size"])
     profile_cfg["num_attention_heads"] = int(summary["num_attention_heads"])
     profile_cfg["num_key_value_heads"] = int(summary["num_key_value_heads"])
+    if "head_dim" in summary:
+        profile_cfg["head_dim"] = int(summary["head_dim"])
+    elif "head_dim" not in profile_cfg:
+        profile_cfg["head_dim"] = max(
+            int(profile_cfg["hidden_size"]) // max(int(profile_cfg["num_attention_heads"]), 1),
+            1,
+        )
     profile_cfg["ppl_ref"] = float(summary["ppl_ref"])
     profile_cfg["ppl_gamma"] = float(summary["fitted_gamma"])
 
@@ -199,7 +206,7 @@ def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.rando
     layer_summary = json.loads(layer_summary_path.read_text(encoding="utf-8")) if layer_summary_path.exists() else None
     ppl_ref = float(layer_summary["clean_ppl"]) if layer_summary is not None else float(summary["ppl_ref"])
 
-    base = build_qwen3_0p6b_profile(profile_cfg, rng)
+    base = build_arch_profile(profile_cfg, rng)
     dtype_bytes = int(profile_cfg.get("dtype_bytes", 2))
     mem_bytes = layer_params * dtype_bytes
     activation_bytes = base.activation_bytes.copy()
@@ -243,3 +250,7 @@ def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.rando
         ppl_gamma=ppl_gamma,
         ppl_surrogate=ppl_surrogate,
     )
+
+
+def build_qwen3_0p6b_real_profile(cfg: dict, real_dir: str | Path, rng: np.random.Generator) -> LLMProfile:
+    return build_real_calibrated_profile(cfg, real_dir, rng)

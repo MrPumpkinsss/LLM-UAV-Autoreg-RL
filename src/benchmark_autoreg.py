@@ -14,7 +14,7 @@ from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark_timed
 from .config import ensure_dir, load_config
 from .env import LLMUAVEnv
-from .llm_profile import build_qwen3_0p6b_profile
+from .llm_profile import build_arch_profile
 
 
 def set_seed(seed: int) -> None:
@@ -80,7 +80,7 @@ def main() -> None:
         seed = int(seed_text.strip())
         set_seed(seed)
         rng = np.random.default_rng(seed)
-        profile = build_qwen3_0p6b_profile(cfg["profile"], rng)
+        profile = build_arch_profile(cfg["profile"], rng)
         env = LLMUAVEnv(cfg, profile, rng)
         agent = AutoregRLAgent(env, cfg, args.device, rng)
         state_dict = torch.load(Path(args.policy), map_location=agent.device)

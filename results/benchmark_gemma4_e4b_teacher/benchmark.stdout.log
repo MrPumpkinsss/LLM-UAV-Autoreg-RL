@@ -1,0 +1,26 @@
+seed=91 states=25/64
+seed=91 states=50/64
+seed=92 states=25/64
+seed=92 states=50/64
+seed=93 states=25/64
+seed=93 states=50/64
+                     reward_mean  reward_std  feasible_mean  latency_mean   ppl_mean  runtime_mean
+method                                                                                            
+autoreg_rl_pure        -0.277215    0.041744       1.000000      9.150630  10.817084      0.073532
+hybrid_heuristic       -0.277479    0.041227       1.000000      9.166636  10.811273      0.017374
+block_lns_strong       -0.277479    0.041227       1.000000      9.166636  10.811273      0.055100
+block_beam_strong      -0.280392    0.042654       1.000000      9.257286  10.816468      0.491934
+beam_search            -0.301616    0.059275       1.000000      9.921265  10.851507      0.094419
+simulated_annealing    -0.322986    0.077293       1.000000     10.418818  11.024586      0.006344
+local_search           -0.323179    0.077458       1.000000     10.424249  11.025404      0.021380
+pdp_aware_greedy       -0.336215    0.089650       1.000000     10.785988  11.084059      0.000837
+latency_greedy         -9.322157   28.337208       0.911458     73.956729  12.507282      0.000074
+block_balanced        -18.864876   38.409178       0.817708     82.128882  13.276884      0.000073
+random               -100.000000    0.000000       0.000000    577.593550  28.338064      0.031268
+{
+  "states": 192,
+  "autoreg_rl_pure_margin_mean": 0.0002638704876455917,
+  "autoreg_rl_pure_margin_min": -0.03373686648917684,
+  "autoreg_rl_pure_win_or_tie_rate": 0.7395833333333334,
+  "autoreg_rl_pure_strict_win_rate": 0.20833333333333334
+}

@@ -106,7 +106,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Calibrate real layer-wise PPL sensitivity for Qwen3-0.6B.")
+    parser = argparse.ArgumentParser(description="Calibrate real layer-wise PPL sensitivity for a loaded LLM.")
     parser.add_argument("--config", default="configs/real_llm.yaml")
     parser.add_argument("--out-dir", default="results/qwen3_0p6b_real_profile")
     parser.add_argument("--layer-drop-rates", default="0.0,0.005,0.01,0.02,0.05,0.08")

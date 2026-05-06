@@ -25,7 +25,12 @@ def main() -> None:
     cfg["profile"]["intermediate_size"] = int(summary["intermediate_size"])
     cfg["profile"]["num_attention_heads"] = int(summary["num_attention_heads"])
     cfg["profile"]["num_key_value_heads"] = int(summary["num_key_value_heads"])
-    cfg["output"]["result_dir"] = "results/dros_qwen3_0p6b_calibrated"
+    if "head_dim" in summary:
+        cfg["profile"]["head_dim"] = int(summary["head_dim"])
+    model_name = str(summary.get("model_id", cfg["profile"].get("model_name", "llm")))
+    slug = model_name.split("/")[-1].replace("-", "_").lower()
+    cfg["profile"]["model_name"] = model_name
+    cfg["output"]["result_dir"] = f"results/dros_{slug}_calibrated"
 
     with Path(args.out).open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f, sort_keys=False)
