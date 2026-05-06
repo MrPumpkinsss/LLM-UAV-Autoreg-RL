@@ -1,0 +1,11 @@
+﻿{
+    "ppl_ref":  12.388739769105376,
+    "r2_log_ratio":  0.99972461051976969,
+    "layer_rmse_log_ratio":  0.0065955767507025692,
+    "layer_r2":  0.99578718585848436,
+    "mae_log_ratio":  0.0011427979435651534,
+    "layer_gamma_sum":  206.09404761884551,
+    "rmse_log_ratio":  0.0019982943925228864,
+    "rows":  155,
+    "fit_type":  "layer_onehot_mlp_v1"
+}

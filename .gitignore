@@ -85,6 +85,24 @@ results/**
 !results/surrogate_benchmark/surrogate_rows.csv
 !results/surrogate_benchmark/surrogate_ppl_fit.png
 
+!results/surrogate_benchmark_qwen3_0p6b/
+!results/surrogate_benchmark_qwen3_0p6b/surrogate_metrics.json
+!results/surrogate_benchmark_qwen3_0p6b/surrogate_report.md
+!results/surrogate_benchmark_qwen3_0p6b/surrogate_rows.csv
+!results/surrogate_benchmark_qwen3_0p6b/surrogate_ppl_fit.png
+
+!results/surrogate_benchmark_qwen35_4b_v2/
+!results/surrogate_benchmark_qwen35_4b_v2/surrogate_metrics.json
+!results/surrogate_benchmark_qwen35_4b_v2/surrogate_report.md
+
+!results/surrogate_benchmark_gemma4_e4b/
+!results/surrogate_benchmark_gemma4_e4b/surrogate_metrics.json
+!results/surrogate_benchmark_gemma4_e4b/surrogate_report.md
+!results/surrogate_benchmark_gemma4_e4b/surrogate_rows.csv
+!results/surrogate_benchmark_gemma4_e4b/surrogate_ppl_fit.png
+
+!results/surrogate_benchmark_multi_model_report.md
+
 !results/visuals_layer_calibrated_hard_k256/
 !results/visuals_layer_calibrated_hard_k256/*.png
 !results/visuals_layer_calibrated_hard_k256/visual_summary.md

@@ -1,0 +1,11 @@
+{
+  "ppl_ref": 10.74465168178793,
+  "gamma": 7.6656569992961865,
+  "points": 4,
+  "r2_log_ratio": 0.3663435954440091,
+  "rmse_log_ratio": 0.1012267122976479,
+  "mae_ppl": 0.8913834387066024,
+  "max_abs_ppl_error": 2.1924716831143485,
+  "mean_relative_ppl_error": 0.0587603351473198,
+  "max_relative_ppl_error": 0.13951209101711684
+}
