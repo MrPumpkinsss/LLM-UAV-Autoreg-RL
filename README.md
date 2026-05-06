@@ -149,7 +149,7 @@ Real LLM validation recomputes paper-formula PPL for selected deployment actions
 
 ## Surrogate Benchmarks
 
-Surrogate quality is reported separately for each model.
+Surrogate quality is reported separately for each model. These benchmarks are calibration-set fits built from the real-LLM profile directories. They are not held-out test benchmarks: each surrogate is fit on the sampled corruption curve stored in the real profile, then scored on those same sampled corruption points.
 
 | model | surrogate artifact | clean PPL | fit type | R2 | RMSE log-ratio | mean rel error | max rel error | interpretation |
 |---|---|---:|---|---:|---:|---:|---:|---|
@@ -161,15 +161,17 @@ Qwen3.5 also has a high-quality layer-wise analytic calibration: layer gamma sum
 
 ### How the surrogate benchmarks are built
 
-All surrogate benchmarks use a real-LLM profile directory, then compare surrogate predictions against real PPL measured on corrupted forward passes. These are calibration-set fit benchmarks, not disjoint held-out test sets; the separate real-action PPL validation above is the deployment-level check.
+All surrogate benchmarks use a real-LLM profile directory, then compare surrogate predictions against real PPL measured on corrupted forward passes. The table below shows the evaluation-text count and corruption grid used by each benchmark.
 
-| model | real profile source | calibration / eval data | corruption grid | trials per point | fit / evaluation |
-|---|---|---|---|---:|---|
-| Qwen3-0.6B | `results/qwen3_0p6b_real_profile` | 128 Wikitext-2 validation texts | 8 embedding-drop points from `0.0` to `0.1` | 6 | exponential baseline on `log(PPL/PPL_ref)`; surrogate benchmark reports R2 and relative error |
-| Qwen3.5-4B | `results/qwen35_4b_real_profile_v2` | 64 Wikitext-2 validation texts | 31 boundary layers x 5 positive layer-drop points, giving 155 MLP rows | 3 | layer-wise calibration plus layer-onehot MLP; benchmark reports layer R2 and MLP R2 on the calibration rows |
-| Gemma-4-E4B | `results/gemma4_e4b_real_profile` | 16 Wikitext-2 validation texts | 9 embedding-drop points from `0.0` to `0.1` | 3 | linear baseline plus empirical piecewise curve over damage proxy; benchmark reports both R2 values on the calibration grid |
+| model | real profile source | validation texts | corruption grid | trials per point | rows in the report | fit / evaluation |
+|---|---|---:|---|---:|---:|---|
+| Qwen3-0.6B | `results/qwen3_0p6b_real_profile` | 128 Wikitext-2 validation texts | 8 embedding-drop points from `0.0` to `0.1` | 6 | 8 curve points | exponential fit on `log(PPL/PPL_ref)`; report R2 and relative error on the sampled calibration points |
+| Qwen3.5-4B | `results/qwen35_4b_real_profile_v2` | 64 Wikitext-2 validation texts | 31 boundary layers x 5 positive layer-drop points | 3 | 155 layer rows | layer-wise calibration plus layer-onehot MLP; report layer R2 and MLP R2 on the calibration rows |
+| Gemma-4-E4B | `results/gemma4_e4b_real_profile` | 16 Wikitext-2 validation texts | 9 embedding-drop points from `0.0` to `0.1` | 3 | 9 curve points | linear baseline plus empirical piecewise curve over a scalar damage proxy; report both R2 values on the calibration grid |
 
-For Qwen3-0.6B and Gemma-4-E4B, the benchmark uses embedding-drop corruption directly on the input embedding layer. For Qwen3.5-4B, the benchmark uses layer-wise hidden-state corruption and then trains the MLP surrogate on the resulting `layer_ppl_curve.json`.
+For Qwen3-0.6B and Gemma-4-E4B, the benchmark uses embedding-drop corruption directly on the input embedding layer. For Qwen3.5-4B, the benchmark uses layer-wise hidden-state corruption and then trains the MLP surrogate on the resulting `layer_ppl_curve.json`. The reported `R2` values are calibration R2 values, not a separate held-out test-set score.
+
+Qwen3-0.6B uses the exact drop grid `[0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]` from `configs/real_llm.yaml`. Gemma-4-E4B uses a denser empirical grid in `results/gemma4_e4b_real_profile/ppl_corruption_curve.json`; the piecewise fit reaches `R2 = 1.0` on those sampled points, but that is interpolation on the calibration curve, not an unseen generalization score.
 
 ## Visuals
 
