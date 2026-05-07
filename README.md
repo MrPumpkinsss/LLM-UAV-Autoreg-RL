@@ -199,6 +199,23 @@ Qwen3-0.6B uses the exact drop grid `[0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 
 
 ## Reproduce
 
+The tracked repository is sufficient to run the simulator, load the released
+checkpoints, regenerate surrogate-fit reports, and launch RL training. The
+published benchmark tables are curated summaries. They are not currently
+bitwise/table-level reproducible from the README alone because raw per-state
+`benchmark_rows.csv` files and the historical hard-state benchmark rows used
+during training are intentionally not tracked.
+
+Expected reproducibility scope:
+
+| target | status | notes |
+|---|---|---|
+| Code import / compilation | reproducible | `python -m compileall -q src` should pass. |
+| Surrogate benchmark from tracked profiles | reproducible | Regenerates the reported Qwen3-0.6B and Gemma curve-fit metrics. |
+| Checkpoint benchmark rerun | runnable, not table-identical | Reruns sampling and baselines from scratch; aggregate reward/PPL can differ from the curated table. |
+| Full RL training | runnable, stochastic | Long run; final policy is not guaranteed to match the released checkpoint exactly. |
+| Real LLM validation | hardware/model-cache dependent | Requires loading the requested Hugging Face model locally. |
+
 Train Qwen3-0.6B:
 
 ```powershell
@@ -228,17 +245,29 @@ python -m src.benchmark_real_profile `
   --beam-width 32 `
   --anneal-steps 128 `
   --autoreg-candidates 256 `
-  --out results/benchmark_layer_calibrated_hard_k256_5seed `
+  --out results/repro_benchmark_layer_calibrated_hard_k256_5seed `
   --device cuda
 ```
+
+This command verifies that the released checkpoint and benchmark code run
+end-to-end. It should be treated as a fresh benchmark rerun, not as a
+byte-for-byte regeneration of `results/benchmark_layer_calibrated_hard_k256_5seed`.
+For exact table-grade reproducibility, preserve and publish the original
+per-state `benchmark_rows.csv` and the hard-state source rows referenced by the
+released checkpoint's `config_used.json`.
 
 Run a surrogate benchmark:
 
 ```powershell
 python -m src.benchmark_surrogate `
   --real-dir results/qwen3_0p6b_real_profile `
-  --out results/surrogate_benchmark_qwen3_0p6b
+  --out results/repro_surrogate_benchmark_qwen3_0p6b
 ```
+
+The surrogate benchmark is deterministic from the tracked profile files. For
+Qwen3-0.6B, this should reproduce an exponential-fit `R2` around `0.997363`.
+For Gemma-4-E4B, the reported `R2 = 1.0` is interpolation on the calibration
+curve, not held-out generalization.
 
 ## Repository Layout
 
