@@ -52,11 +52,18 @@ def main() -> None:
     parser.add_argument("--candidate-overgenerate", type=int, default=None)
     parser.add_argument("--candidate-beam-count", type=int, default=None)
     parser.add_argument("--candidate-min-hamming", type=int, default=None)
+    parser.add_argument("--retransmissions", default=None)
     parser.add_argument("--out", default="results/benchmark_autoreg")
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.retransmissions is not None:
+        retransmissions = str(args.retransmissions)
+        if retransmissions.lower() in {"inf", "infinity"}:
+            cfg.setdefault("wireless", {})["retransmissions"] = retransmissions
+        else:
+            cfg.setdefault("wireless", {})["retransmissions"] = int(retransmissions)
     cfg["uav"]["num_uavs"] = 5
     cfg.setdefault("ar_rl", {})["policy_refine_steps"] = args.autoreg_refine_steps
     if args.projection_mode is not None:

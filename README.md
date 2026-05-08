@@ -107,6 +107,17 @@ These are the main policy-comparison benchmarks. PPL is `PPL_hat`, not an online
 
 Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`.
 
+### No-Retransmission Ablation
+
+The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual activation loss is raw PDP instead of `PDP^2`. The same PPL surrogates are reused because they map residual activation loss to PPL, while the RL policies are retrained under the changed reward. These runs were executed in the `LLM-UAV` conda environment with CUDA.
+
+| model | artifact | states | RL reward | best non-RL reward | latency | PPL_hat | RL runtime | mean margin | win/tie |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Qwen3-0.6B | `results/benchmark_qwen3_0p6b_no_retrans_5seed` | 320 | -105.841463 | -7.494184 | 2.6158 | 8163.6245 | 0.19954 | -98.347279 | 0.5906 |
+| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_5seed` | 80 | -1.679301 | -0.576225 | 4.7772 | 59.9611 | 0.11368 | -1.103076 | 0.2125 |
+
+For Qwen3-0.6B, the RL policy remains feasible and low-latency, but mean reward is dominated by rare high-PPL outliers under raw PDP. For Qwen3.5-4B, retraining recovers feasible policies, but the strongest non-RL block heuristic still has better mean reward in this ablation.
+
 ### Qwen3-0.6B Methods
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
@@ -267,6 +278,45 @@ python -m src.benchmark_real_profile --config configs/gemma4_base_calibrated.yam
 
 Expected summary: `autoreg_rl_pure` reward `-0.278169`, `PPL_hat` `10.7976`, win/tie `0.7552`.
 
+No-retransmission ablation (`r = 0`):
+
+```powershell
+conda run -n LLM-UAV python -m src.train_autoreg_rl `
+  --config configs/qwen3_calibrated.yaml `
+  --retransmissions 0 `
+  --out results/autoreg_rl_qwen3_0p6b_no_retrans `
+  --device cuda
+
+conda run -n LLM-UAV python -m src.train_autoreg_rl `
+  --config configs/qwen35_4b_calibrated.yaml `
+  --retransmissions 0 `
+  --out results/autoreg_rl_qwen35_4b_no_retrans `
+  --device cuda `
+  --hard-benchmark-rows none `
+  --hard-fraction 0 `
+  --hard-teacher-repeats 0
+```
+
+Benchmark the no-retransmission checkpoints:
+
+```powershell
+conda run -n LLM-UAV python -m src.benchmark_real_profile `
+  --config configs/qwen3_calibrated.yaml `
+  --retransmissions 0 `
+  --policy results/autoreg_rl_qwen3_0p6b_no_retrans/autoreg_policy_best.pt `
+  --out results/benchmark_qwen3_0p6b_no_retrans_5seed `
+  --device cuda
+
+conda run -n LLM-UAV python -m src.benchmark_real_profile `
+  --config configs/qwen35_4b_calibrated.yaml `
+  --retransmissions 0 `
+  --policy results/autoreg_rl_qwen35_4b_no_retrans/autoreg_policy_best.pt `
+  --out results/benchmark_qwen35_4b_no_retrans_5seed `
+  --device cuda
+```
+
+Expected no-retransmission summaries: Qwen3-0.6B `autoreg_rl_pure` reward `-105.841463`, `PPL_hat` `8163.6245`, win/tie `0.5906`; Qwen3.5-4B reward `-1.679301`, `PPL_hat` `59.9611`, win/tie `0.2125`.
+
 Run a surrogate benchmark:
 
 ```powershell
@@ -315,9 +365,13 @@ curve, not held-out generalization.
 |   |-- autoreg_rl_layer_calibrated_hard_k256/
 |   |-- autoreg_rl_qwen35_4b_v2_teacher_big/
 |   |-- autoreg_rl_gemma4_e4b_teacher/
+|   |-- autoreg_rl_qwen3_0p6b_no_retrans/
+|   |-- autoreg_rl_qwen35_4b_no_retrans/
 |   |-- benchmark_layer_calibrated_hard_k256_5seed/
 |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
 |   |-- benchmark_gemma4_e4b_teacher/
+|   |-- benchmark_qwen3_0p6b_no_retrans_5seed/
+|   |-- benchmark_qwen35_4b_no_retrans_5seed/
 |   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   |-- surrogate_benchmark_qwen3_0p6b/
 |   |-- surrogate_benchmark_qwen35_4b_v2/

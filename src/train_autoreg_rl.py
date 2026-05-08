@@ -479,6 +479,7 @@ def main() -> None:
     parser.add_argument("--teacher-updates", type=int, default=None)
     parser.add_argument("--num-uavs", type=int, default=None)
     parser.add_argument("--num-layers", type=int, default=None)
+    parser.add_argument("--retransmissions", default=None)
     parser.add_argument("--real-dir", default=None)
     parser.add_argument("--init-policy", default=None)
     parser.add_argument("--train-projection-passes", type=int, default=None)
@@ -511,6 +512,12 @@ def main() -> None:
         cfg["uav"]["num_uavs"] = args.num_uavs
     if args.num_layers is not None:
         cfg["profile"]["num_layers"] = args.num_layers
+    if args.retransmissions is not None:
+        retransmissions = str(args.retransmissions)
+        if retransmissions.lower() in {"inf", "infinity"}:
+            cfg.setdefault("wireless", {})["retransmissions"] = retransmissions
+        else:
+            cfg.setdefault("wireless", {})["retransmissions"] = int(retransmissions)
     real_dir = Path(args.real_dir) if args.real_dir else (
         Path(str(cfg.get("profile", {}).get("real_profile_dir"))) if cfg.get("profile", {}).get("real_profile_dir") else None
     )
@@ -556,7 +563,11 @@ def main() -> None:
     if args.candidate_min_hamming is not None:
         ar_cfg["candidate_min_hamming"] = args.candidate_min_hamming
     if args.hard_benchmark_rows is not None:
-        ar_cfg["hard_benchmark_rows"] = args.hard_benchmark_rows
+        hard_rows_arg = str(args.hard_benchmark_rows)
+        if hard_rows_arg.lower() in {"", "none", "null", "false"}:
+            ar_cfg.pop("hard_benchmark_rows", None)
+        else:
+            ar_cfg["hard_benchmark_rows"] = args.hard_benchmark_rows
     if args.hard_baseline is not None:
         ar_cfg["hard_baseline"] = args.hard_baseline
     if args.hard_margin_threshold is not None:

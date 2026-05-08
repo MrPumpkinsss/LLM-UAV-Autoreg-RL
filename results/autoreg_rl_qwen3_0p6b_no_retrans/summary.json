@@ -1,0 +1,19 @@
+{
+  "episodes": 2000,
+  "runtime_s": 3351.444102048874,
+  "device": "cuda",
+  "teacher_reward_mean": -89.25767907820234,
+  "hard_states": 0,
+  "hard_margin_mean": null,
+  "hard_margin_min": null,
+  "hard_fraction": 0.0,
+  "final_eval": {
+    "reward": -15.32840961572308,
+    "cost": 15.32840961572308,
+    "latency_s": 2.672089417310728,
+    "ppl_hat": 1190.9754591943038,
+    "feasible_rate": 1.0,
+    "feasible_candidates": 252.4375,
+    "episode": 2000
+  }
+}

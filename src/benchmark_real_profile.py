@@ -66,11 +66,18 @@ def main() -> None:
     parser.add_argument("--candidate-overgenerate", type=int, default=None)
     parser.add_argument("--candidate-beam-count", type=int, default=None)
     parser.add_argument("--candidate-min-hamming", type=int, default=None)
+    parser.add_argument("--retransmissions", default=None)
     parser.add_argument("--out", default=None)
     parser.add_argument("--device", default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
+    if args.retransmissions is not None:
+        retransmissions = str(args.retransmissions)
+        if retransmissions.lower() in {"inf", "infinity"}:
+            cfg.setdefault("wireless", {})["retransmissions"] = retransmissions
+        else:
+            cfg.setdefault("wireless", {})["retransmissions"] = int(retransmissions)
     bench_cfg = dict(cfg.get("benchmark", {}))
     ar_cfg = cfg.setdefault("ar_rl", {})
     if args.autoreg_refine_steps is not None:
