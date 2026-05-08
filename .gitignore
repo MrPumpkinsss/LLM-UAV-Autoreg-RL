@@ -32,14 +32,17 @@ results/**
 !results/benchmark_layer_calibrated_hard_k256_5seed/
 !results/benchmark_layer_calibrated_hard_k256_5seed/benchmark_margin.json
 !results/benchmark_layer_calibrated_hard_k256_5seed/benchmark_report.md
+!results/benchmark_layer_calibrated_hard_k256_5seed/benchmark_rows.csv
 !results/benchmark_layer_calibrated_hard_k256_5seed/benchmark_summary.csv
 !results/benchmark_qwen35_4b_v2_teacher_big_5seed/
 !results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_margin.json
 !results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_report.md
+!results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_rows.csv
 !results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_summary.csv
 !results/benchmark_gemma4_e4b_teacher/
 !results/benchmark_gemma4_e4b_teacher/benchmark_margin.json
 !results/benchmark_gemma4_e4b_teacher/benchmark_report.md
+!results/benchmark_gemma4_e4b_teacher/benchmark_rows.csv
 !results/benchmark_gemma4_e4b_teacher/benchmark_summary.csv
 !results/qwen3_0p6b_real_profile/
 !results/qwen3_0p6b_real_profile/layer_params.npy
