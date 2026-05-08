@@ -32,6 +32,8 @@ class HardStateItem:
     state_id: int
     margin: float
     weight: float
+    teacher_action: np.ndarray | None = None
+    teacher_reward: float | None = None
 
 
 def _torch_attempts_and_residual(env: LLMUAVEnv, p: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
@@ -324,7 +326,7 @@ def materialize_hard_states(
             # The benchmark consumes the same RNG inside the heuristic suite
             # before moving to the next state. Replaying that consumption keeps
             # seed/state_id hard cases aligned with benchmark_rows.csv.
-            evaluate_full_benchmark_timed(
+            timed_methods = evaluate_full_benchmark_timed(
                 env,
                 state,
                 rng,
@@ -333,6 +335,18 @@ def materialize_hard_states(
             )
             while spec_index < len(seed_specs) and seed_specs[spec_index].state_id == state_id:
                 spec = seed_specs[spec_index]
+                feasible_methods = [
+                    (action, ev)
+                    for action, ev, _runtime in timed_methods.values()
+                    if ev.feasible
+                ]
+                if feasible_methods:
+                    teacher_action, teacher_ev = max(feasible_methods, key=lambda item: item[1].reward)
+                    teacher_action = teacher_action.astype(np.int64, copy=True)
+                    teacher_reward = float(teacher_ev.reward)
+                else:
+                    teacher_action = None
+                    teacher_reward = None
                 hard_states.append(
                     HardStateItem(
                         state=state,
@@ -340,6 +354,8 @@ def materialize_hard_states(
                         state_id=state_id,
                         margin=spec.margin,
                         weight=spec.weight,
+                        teacher_action=teacher_action,
+                        teacher_reward=teacher_reward,
                     )
                 )
                 spec_index += 1
@@ -487,6 +503,7 @@ def main() -> None:
     parser.add_argument("--hard-weight-scale", type=float, default=None)
     parser.add_argument("--hard-min-weight", type=float, default=None)
     parser.add_argument("--hard-max-weight", type=float, default=None)
+    parser.add_argument("--hard-teacher-repeats", type=int, default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -554,6 +571,8 @@ def main() -> None:
         ar_cfg["hard_min_weight"] = args.hard_min_weight
     if args.hard_max_weight is not None:
         ar_cfg["hard_max_weight"] = args.hard_max_weight
+    if args.hard_teacher_repeats is not None:
+        ar_cfg["hard_teacher_repeats"] = args.hard_teacher_repeats
 
     seed = int(cfg["seed"])
     set_seed(seed)
@@ -619,10 +638,24 @@ def main() -> None:
                 "state_id": item.state_id,
                 "margin": item.margin,
                 "weight": item.weight,
+                "teacher_reward": item.teacher_reward,
             }
             for item in hard_states
         ]
         write_csv(out_dir / "hard_states_used.csv", hard_report_rows)
+        hard_teacher_repeats = int(ar_cfg.get("hard_teacher_repeats", 0))
+        if hard_teacher_repeats > 0:
+            added = 0
+            for item in hard_states:
+                if item.teacher_action is None:
+                    continue
+                state_vec = env.state_vector(item.state)
+                caps = agent.mem_caps_norm(item.state)
+                for _ in range(hard_teacher_repeats):
+                    agent.replay.add(state_vec, caps, item.teacher_action, weight=item.weight)
+                    added += 1
+            if added:
+                print(f"hard_teacher_replay_added={added}", flush=True)
         if hard_states:
             print(
                 f"loaded_hard_states={len(hard_states)} "

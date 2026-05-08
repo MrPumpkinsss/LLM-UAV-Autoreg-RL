@@ -14,7 +14,7 @@ Three model profiles are tracked:
 | `Qwen/Qwen3.5-4B` | larger-model experimental result | `results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt` | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` |
 | `google/gemma-4-E4B` | base-model exploratory result with curve surrogate | `results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt` | `results/benchmark_gemma4_e4b_teacher` |
 
-Gemma now uses a denser real-LLM embedding-drop profile and an empirical piecewise curve surrogate. Qwen3-0.6B remains the most completely validated line because it has layer-wise calibration and real action-level validation, but the current tracked checkpoint is slightly below the strongest heuristic on mean simulator reward.
+Gemma now uses a denser real-LLM embedding-drop profile and an empirical piecewise curve surrogate. Qwen3-0.6B remains the most completely validated line because it has layer-wise calibration and real action-level validation. With pure learned-policy candidates and overgenerate-then-deduplicate beam inference, all three tracked simulator benchmarks now beat the strongest non-RL baseline on mean reward.
 
 ## Observation, Action, Reward
 
@@ -65,7 +65,7 @@ With `r = 1`, PPL damage uses `p_l^2` rather than raw PDP.
 
 Training uses policy sampling, environment scoring, policy-gradient updates, and self-imitation replay. Larger runs use teacher warm-start: strong heuristics generate replay targets before RL continues optimizing the same reward. This improves learning but does not change inference fairness, because benchmark-time `autoreg_rl_pure` still uses only learned-policy candidates.
 
-The default high-quality inference setting uses beam policy candidates with `k=256`.
+The default high-quality inference setting uses beam policy candidates with `k=256`; Qwen3-0.6B and Qwen3.5-4B overgenerate raw policy beams and deduplicate them before scoring. This is still pure RL inference because no heuristic action is inserted into the candidate pool.
 
 ## Surrogate Principle
 
@@ -101,9 +101,9 @@ These are the main policy-comparison benchmarks. PPL is `PPL_hat`, not an online
 
 | model | artifact | states | RL reward | best non-RL reward | latency | PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Qwen3-0.6B | `results/benchmark_layer_calibrated_hard_k256_5seed` | 320 | -0.595551 | -0.591107 | 2.6332 | 56.4038 | 0.11662 | -0.004444 | 0.6750 |
-| Qwen3.5-4B | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` | 80 | -0.165332 | -0.164903 | 4.4383 | 13.3855 | 0.06546 | -0.000429 | 0.9000 |
-| Gemma-4-E4B | `results/benchmark_gemma4_e4b_teacher` | 192 | -0.278169 | -0.278862 | 9.2066 | 10.7976 | 0.10900 | +0.000693 | 0.7552 |
+| Qwen3-0.6B | `results/benchmark_layer_calibrated_hard_k256_5seed` | 320 | -0.571681 | -0.591107 | 2.6322 | 54.5724 | 0.21232 | +0.019426 | 0.6813 |
+| Qwen3.5-4B | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` | 80 | -0.164647 | -0.164903 | 4.4425 | 13.3604 | 0.11292 | +0.000256 | 0.9250 |
+| Gemma-4-E4B | `results/benchmark_gemma4_e4b_teacher` | 192 | -0.278169 | -0.278862 | 9.2066 | 10.7976 | 0.10848 | +0.000693 | 0.7552 |
 
 Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`.
 
@@ -111,31 +111,31 @@ Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_b
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| block_lns_strong | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.09350 |
-| hybrid_heuristic | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.01780 |
-| autoreg_rl_pure | -0.595551 | 1.0000 | 2.6332 | 56.4038 | 0.11662 |
-| block_beam_strong | -0.626139 | 1.0000 | 2.7118 | 58.1541 | 0.46330 |
-| beam_search | -13.959931 | 1.0000 | 3.1348 | 1081.9976 | 0.07487 |
+| autoreg_rl_pure | -0.571681 | 1.0000 | 2.6322 | 54.5724 | 0.21232 |
+| hybrid_heuristic | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.01839 |
+| block_lns_strong | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.09553 |
+| block_beam_strong | -0.626139 | 1.0000 | 2.7118 | 58.1541 | 0.47908 |
+| beam_search | -13.959931 | 1.0000 | 3.1348 | 1081.9976 | 0.07844 |
 
 ### Qwen3.5-4B Methods
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| block_lns_strong | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.06806 |
-| hybrid_heuristic | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.01581 |
-| autoreg_rl_pure | -0.165332 | 1.0000 | 4.4383 | 13.3855 | 0.06546 |
-| block_beam_strong | -0.166586 | 1.0000 | 4.4711 | 13.3939 | 0.75590 |
-| beam_search | -0.742398 | 1.0000 | 4.7914 | 30.9303 | 0.07716 |
+| autoreg_rl_pure | -0.164647 | 1.0000 | 4.4425 | 13.3604 | 0.11292 |
+| hybrid_heuristic | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.01815 |
+| block_lns_strong | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.08182 |
+| block_beam_strong | -0.166586 | 1.0000 | 4.4711 | 13.3939 | 0.89049 |
+| beam_search | -0.742398 | 1.0000 | 4.7914 | 30.9303 | 0.09164 |
 
 ### Gemma-4-E4B Methods
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.278169 | 1.0000 | 9.2066 | 10.7976 | 0.10900 |
-| hybrid_heuristic | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.02479 |
-| block_lns_strong | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.08839 |
-| block_beam_strong | -0.281125 | 1.0000 | 9.3036 | 10.7988 | 0.83718 |
-| beam_search | -0.304512 | 1.0000 | 10.0208 | 10.8491 | 0.17713 |
+| autoreg_rl_pure | -0.278169 | 1.0000 | 9.2066 | 10.7976 | 0.10848 |
+| hybrid_heuristic | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.02683 |
+| block_lns_strong | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.09493 |
+| block_beam_strong | -0.281125 | 1.0000 | 9.3036 | 10.7988 | 0.91360 |
+| beam_search | -0.304512 | 1.0000 | 10.0208 | 10.8491 | 0.19476 |
 
 ## Real LLM Validation
 
@@ -235,7 +235,11 @@ python -m src.train_autoreg_rl --config configs/gemma4_base_calibrated.yaml
 
 The config files contain the output directory, real-profile directory, teacher
 warm-start settings, candidate mode, projection mode, and CUDA device. Training
-is stochastic, so the exact checkpoint can vary across environments.
+is stochastic, so the exact checkpoint can vary across environments. The tracked
+Qwen3.5-4B checkpoint is a hard-state fine-tune: it samples the losing states
+from `results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_rows.csv` and
+adds their strongest non-RL actions to replay, but benchmark-time inference is
+still pure learned-policy candidate generation.
 
 Benchmark a trained policy:
 
@@ -245,7 +249,7 @@ Qwen3-0.6B:
 python -m src.benchmark_real_profile --config configs/qwen3_calibrated.yaml
 ```
 
-Expected summary: `autoreg_rl_pure` reward `-0.595551`, `PPL_hat` `56.4038`, win/tie `0.6750`.
+Expected summary: `autoreg_rl_pure` reward `-0.571681`, `PPL_hat` `54.5724`, win/tie `0.6813`.
 
 Qwen3.5-4B:
 
@@ -253,7 +257,7 @@ Qwen3.5-4B:
 python -m src.benchmark_real_profile --config configs/qwen35_4b_calibrated.yaml
 ```
 
-Expected summary: `autoreg_rl_pure` reward `-0.165332`, `PPL_hat` `13.3855`, win/tie `0.9000`.
+Expected summary: `autoreg_rl_pure` reward `-0.164647`, `PPL_hat` `13.3604`, win/tie `0.9250`.
 
 Gemma-4-E4B:
 

@@ -77,20 +77,20 @@ def main() -> None:
         ar_cfg["policy_refine_steps"] = args.autoreg_refine_steps
     elif "autoreg_refine_steps" in bench_cfg:
         ar_cfg["policy_refine_steps"] = int(bench_cfg["autoreg_refine_steps"])
-    if args.projection_mode is not None:
-        ar_cfg["projection_mode"] = args.projection_mode
-    if args.max_blocks is not None:
-        ar_cfg["max_blocks"] = args.max_blocks
-    if args.candidate_mode is not None:
-        ar_cfg["candidate_mode"] = args.candidate_mode
-    if args.beam_temperature is not None:
-        ar_cfg["beam_temperature"] = args.beam_temperature
-    if args.candidate_overgenerate is not None:
-        ar_cfg["candidate_overgenerate"] = args.candidate_overgenerate
-    if args.candidate_beam_count is not None:
-        ar_cfg["candidate_beam_count"] = args.candidate_beam_count
-    if args.candidate_min_hamming is not None:
-        ar_cfg["candidate_min_hamming"] = args.candidate_min_hamming
+    benchmark_policy_keys = {
+        "projection_mode": args.projection_mode,
+        "max_blocks": args.max_blocks,
+        "candidate_mode": args.candidate_mode,
+        "beam_temperature": args.beam_temperature,
+        "candidate_overgenerate": args.candidate_overgenerate,
+        "candidate_beam_count": args.candidate_beam_count,
+        "candidate_min_hamming": args.candidate_min_hamming,
+    }
+    for key, value in benchmark_policy_keys.items():
+        if value is not None:
+            ar_cfg[key] = value
+        elif key in bench_cfg:
+            ar_cfg[key] = bench_cfg[key]
 
     real_dir_arg = args.real_dir or bench_cfg.get("real_dir")
     policy_path = Path(args.policy or bench_cfg.get("policy") or Path(ar_cfg.get("result_dir", "results/autoreg_rl")) / "autoreg_policy_best.pt")
@@ -110,10 +110,11 @@ def main() -> None:
     for seed_text in seeds_text.split(","):
         seed = int(seed_text.strip())
         set_seed(seed)
-        rng = np.random.default_rng(seed)
-        profile = build_real_profile(cfg, resolve_real_dir(cfg, real_dir_arg), rng)
-        env = LLMUAVEnv(cfg, profile, rng)
-        agent = AutoregRLAgent(env, cfg, device, rng)
+        env_rng = np.random.default_rng(seed)
+        agent_rng = np.random.default_rng(seed + 10_000_019)
+        profile = build_real_profile(cfg, resolve_real_dir(cfg, real_dir_arg), env_rng)
+        env = LLMUAVEnv(cfg, profile, env_rng)
+        agent = AutoregRLAgent(env, cfg, device, agent_rng)
         state_dict = torch.load(policy_path, map_location=agent.device)
         agent.policy.load_state_dict(state_dict)
 
@@ -122,7 +123,7 @@ def main() -> None:
             heuristic_methods = evaluate_full_benchmark_timed(
                 env,
                 state,
-                rng,
+                env_rng,
                 beam_width=beam_width,
                 anneal_steps=anneal_steps,
             )

@@ -201,6 +201,7 @@ ar_rl:
   projection_mode: blocks         # 将分配投影成连续 layer block，符合分布式流水式切分。
   max_blocks: 5                   # 最多 5 个连续 block，通常不超过 UAV 数。
   candidate_mode: beam            # inference 用 beam policy candidate，而不是纯随机采样。
+  candidate_overgenerate: 2       # 先多采样再去重，减少 hard state 漏掉好候选的概率。
   beam_temperature: 0.9
   hard_baseline: best_nonrl       # hard-state 加权时使用的非 RL 参考 baseline。
   device: cuda                    # policy 训练/推理设备。

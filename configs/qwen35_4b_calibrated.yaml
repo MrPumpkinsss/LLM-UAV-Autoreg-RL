@@ -81,7 +81,7 @@ heuristics:
 # 训练命令：python -m src.train_autoreg_rl --config configs/qwen35_4b_calibrated.yaml
 ar_rl:
   result_dir: results/autoreg_rl_qwen35_4b_v2_teacher_big
-  episodes: 2000                 # RL 训练 episode 数。
+  episodes: 1000                 # 当前 tracked checkpoint 的训练轮数。
   batch_states: 32               # 每个 episode 采样多少个环境 state。
   candidates: 256                # 训练时每个 state 从 policy 采样多少个完整分配候选。
   eval_candidates: 256           # validation/benchmark 的默认 RL 候选数 k。
@@ -112,19 +112,27 @@ ar_rl:
   infeasible_penalty: 2.5        # 可微训练损失里的不可行惩罚。
   infeasible_cost_weight: 0.02
   grad_clip: 1.0
-  teacher_states: 1000           # teacher warm-start 使用多少个环境 state。
-  teacher_updates: 1000          # teacher replay 预训练更新步数。
+  teacher_states: 0              # 当前 tracked checkpoint 未使用 teacher warm-start。
+  teacher_updates: 0             # 当前 tracked checkpoint 未使用 teacher warm-start。
   teacher_beam_width: 32         # teacher 搜索里的 beam 宽度。
   teacher_anneal_steps: 128      # teacher 搜索里的 simulated annealing 步数。
   teacher_eval_interval: 200
   projection_mode: blocks        # 将分配投影成连续 layer block，符合分布式流水式切分。
   max_blocks: 5                  # 最多 5 个连续 block，通常不超过 UAV 数。
   candidate_mode: beam           # inference 用 beam policy candidate，而不是纯随机采样。
+  candidate_overgenerate: 2      # 先多采样再去重，增加纯 RL 候选覆盖率。
   beam_temperature: 0.9
   teacher_top_k: 6               # 每个 teacher state 保留 top-k 动作作为监督。
   teacher_weight_tau: 0.012      # teacher 动作权重温度，越小越偏向最好动作。
   teacher_min_margin: 0.03       # teacher 动作相对 baseline 的最小筛选 margin。
+  hard_benchmark_rows: results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_rows.csv
+  hard_margin_threshold: 0.0     # 只采样 RL 输给 best_nonrl 的 hard states。
+  hard_max_states: 32            # 最多保留 32 个最难 state。
+  hard_fraction: 0.5             # 每个训练 batch 中 hard states 的比例。
+  hard_weight_scale: 120.0       # 负 margin 转成训练权重的放大系数。
+  hard_max_weight: 12.0          # hard-state 权重上限，防止少数 outlier 过拟合。
   hard_baseline: best_nonrl      # hard-state 加权时使用的非 RL 参考 baseline。
+  hard_teacher_repeats: 8        # hard-state 的最优非 RL 动作额外灌入 replay 的重复次数。
   device: cuda                   # policy 训练/推理设备。
 
 # 当前 README 使用的 benchmark 配置。
