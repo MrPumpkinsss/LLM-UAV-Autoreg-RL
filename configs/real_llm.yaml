@@ -1,20 +1,27 @@
-model_id: Qwen/Qwen3-0.6B
-cache_dir: null
-device: cuda
-dtype: bfloat16
-max_length: 128
-stride: 128
-num_texts: 128
-batch_size: 1
-drop_rates: [0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]
-corruption_trials: 6
-seed: 123
+# Qwen3-0.6B 真实 LLM profile 配置。
+# 用于生成 clean PPL、embedding-drop PPL 曲线和后续 surrogate 校准数据。
+
+model_id: Qwen/Qwen3-0.6B        # Hugging Face 模型名。
+cache_dir: null                  # 模型缓存目录；null 表示使用默认 HF cache。
+device: cuda                     # 真实 LLM 前向计算设备。
+dtype: bfloat16                  # 加载模型时使用的数据类型。
+max_length: 128                  # PPL 计算的最大 token 长度。
+stride: 128                      # 长文本滑窗步长；等于 max_length 时不重叠。
+num_texts: 128                   # 从数据集抽取多少条文本做 PPL/profile。
+batch_size: 1                    # 真实 LLM PPL batch size；显存不够时保持 1。
+drop_rates: [0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]  # embedding corruption 网格。
+corruption_trials: 6             # 每个 drop rate 重复次数，用于降低随机噪声。
+seed: 123                        # profile 随机种子。
 output_dir: results/qwen3_0p6b_real_profile
+
+# 优先从 Wikitext-2 validation 抽文本；如果下载失败则回退到下面 texts 列表。
 dataset:
   name: wikitext
   config: wikitext-2-raw-v1
   split: validation
   min_chars: 120
+
+# 数据集不可用时的 fallback 文本。
 texts:
   - "The unmanned aerial vehicles collaborate to execute language model inference over wireless links while preserving mission latency."
   - "Reliable edge intelligence requires careful placement of neural network layers across heterogeneous devices."

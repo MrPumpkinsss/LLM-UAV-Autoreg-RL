@@ -1,57 +1,83 @@
+# Qwen3-0.6B 主实验配置。
+# README 里的 Qwen3-0.6B 训练和 benchmark 命令都直接读取这个文件。
+# 注意：这里的数值会影响复现实验结果，改动后需要重新训练和重新跑 benchmark。
+
+# 全局随机种子：控制 UAV 状态采样、网络初始化和训练/测试随机性。
 seed: 42
+
+# LLM 结构和 PPL surrogate 配置。
+# num_layers 决定动作长度 L；hidden/intermediate/head 参数用于估算每层参数量、计算量和 activation 大小。
+# real_profile_dir 指向真实 LLM profile，里面包含 clean PPL、真实测得的 drop-PPL 曲线/层敏感度。
 profile:
-  model_name: Qwen3-0.6B
-  num_layers: 28
-  hidden_size: 1024
-  intermediate_size: 3072
+  model_name: Qwen3-0.6B          # 报告里显示的模型名称。
+  num_layers: 28                  # Transformer 层数；RL 每个 episode 要输出 28 个 UAV 分配决策。
+  hidden_size: 1024               # hidden dimension，用于估算 activation 和层计算量。
+  intermediate_size: 3072         # FFN 中间层维度，用于估算每层参数/计算量。
   num_attention_heads: 16
   num_key_value_heads: 8
   head_dim: 128
-  dtype_bytes: 2
-  sequence_length: 128
-  ppl_ref: 30.824672354565333
-  ppl_gamma: 10.899647591669423
+  dtype_bytes: 2                  # bfloat16/float16 约等于 2 bytes。
+  sequence_length: 128            # profile 和 simulator 默认使用的序列长度。
+  ppl_ref: 30.824672354565333     # clean PPL，作为 PPL_hat 的基准。
+  ppl_gamma: 10.899647591669423   # 兼容旧的全局指数 surrogate；有真实 profile 时优先使用 profile 内校准结果。
   real_profile_dir: results/qwen3_0p6b_real_profile
-  surrogate_mode: linear
-  layer_compute_jitter: 0.12
-  activation_jitter: 0.08
+  surrogate_mode: linear          # 使用线性/指数形式的层级损伤 surrogate。
+  layer_compute_jitter: 0.12      # 给每层计算量加入轻微扰动，避免所有层完全同质。
+  activation_jitter: 0.08         # 给层间 activation 大小加入轻微扰动。
+
+# UAV 环境配置。
+# num_uavs 固定为 5；compute/mem/energy 区间用于每个 sampled state 随机生成异构 UAV。
+# memory 和 energy 是硬约束：违反后会触发 repair/projection，仍不可行则给 infeasible_reward。
 uav:
-  num_uavs: 5
-  area_m: 1000.0
-  altitude_m: 100.0
-  compute_ghz_min: 3.5
-  compute_ghz_max: 8.0
-  mem_mb_min: 180.0
+  num_uavs: 5                     # UAV 数量，也是 RL 每层动作的类别数。
+  area_m: 1000.0                  # UAV 随机分布区域边长。
+  altitude_m: 100.0               # 固定飞行高度，用于信道距离计算。
+  compute_ghz_min: 3.5            # 每个 UAV 计算能力采样下界。
+  compute_ghz_max: 8.0            # 每个 UAV 计算能力采样上界。
+  mem_mb_min: 180.0               # 0.6B 模型对应的 UAV 显存/内存下界。
   mem_mb_max: 320.0
-  energy_j_min: 900.0
+  energy_j_min: 900.0             # 单次任务可用能量预算下界。
   energy_j_max: 1600.0
-  tx_power_w: 1.0
-  compute_power_base_w: 1.5
-  compute_power_per_ghz_w: 0.45
-  hover_power_w_min: 35.0
+  tx_power_w: 1.0                 # 传输功率，用于通信能耗。
+  compute_power_base_w: 1.5       # 计算功耗基础项。
+  compute_power_per_ghz_w: 0.45   # 计算功耗随 compute GHz 增加的线性项。
+  hover_power_w_min: 35.0         # 悬停功耗采样下界。
   hover_power_w_max: 70.0
+
+# 无线链路配置。
+# PDP 由 SNR 与阈值关系得到；retransmissions=1 时 residual loss = PDP^(1+1)=PDP^2。
+# bandwidth_allocation=kkt_closed_form 使用凸优化 KKT 条件推导出的闭式解，和对应凸问题最优解一致。
 wireless:
-  bandwidth_hz: 2000000.0
+  bandwidth_hz: 2000000.0         # 系统总带宽。
   bandwidth_allocation: kkt_closed_form
   noise_power_w: 1.0e-12
-  snr_threshold: 10.0
-  h0: 1.0e-05
-  path_loss_exp: 2.15
-  rayleigh_scale: 1.0
-  min_rate_bps: 1000.0
-  retransmissions: 1
+  snr_threshold: 10.0             # SNR 低于阈值时 PDP 增大。
+  h0: 1.0e-05                     # 参考信道增益。
+  path_loss_exp: 2.15             # 路损指数。
+  rayleigh_scale: 1.0             # Rayleigh fading 尺度。
+  min_rate_bps: 1000.0            # 防止极端链路速率为 0 的数值下界。
+  retransmissions: 1              # 允许 1 次重传；影响通信时延和 residual activation loss。
+
+# Reward 配置。
+# feasible 时 reward = -[alpha * PPL_norm + beta * latency_norm]。
+# PPL_norm=(PPL_hat-PPL_ref)/PPL_ref，latency_norm=latency_s/latency_ref_s。
 reward:
-  alpha: 0.4
-  beta: 0.6
-  infeasible_reward: -100.0
-  latency_ref_s: 6.0
-  repair_energy_iters: 4
+  alpha: 0.4                      # PPL 质量项权重。
+  beta: 0.6                       # latency 时延项权重。
+  infeasible_reward: -100.0       # 硬约束不可行时的固定惩罚。
+  latency_ref_s: 6.0              # latency 归一化参考值；0.6B 比 4B/Gemma 小。
+  repair_energy_iters: 4          # 能耗 repair 的迭代次数。
+
+# 强启发式 baseline 配置。
+# benchmark 会用这些启发式和 RL 公平对比；RL inference 不会把启发式动作塞进候选池。
 heuristics:
   include_simple_heuristics_in_dros: true
   local_search_passes: 2
   local_search_seed_tries: 64
   include_local_search_in_dros: true
   evaluate_strong_baseline: true
+
+# 旧 DROS/MLP 训练段：保留给历史实验兼容，README 主复现流程不使用。
 training:
   episodes: 1200
   eval_interval: 50
@@ -129,62 +155,69 @@ block_rl:
   teacher_elite_fraction: 0.08
   teacher_eval_interval: 300
   device: cuda
+# 当前 README 使用的 autoregressive RL 主训练配置。
+# 训练命令：python -m src.train_autoreg_rl --config configs/qwen3_calibrated.yaml
 ar_rl:
   result_dir: results/autoreg_rl_layer_calibrated_hard_k256
-  episodes: 2000
-  batch_states: 32
-  candidates: 256
-  eval_candidates: 256
-  validation_states: 160
-  eval_interval: 50
-  elite_fraction: 0.08
+  episodes: 2000                  # RL 训练 episode 数。
+  batch_states: 32                # 每个 episode 采样多少个环境 state。
+  candidates: 256                 # 训练时每个 state 从 policy 采样多少个完整分配候选。
+  eval_candidates: 256            # validation/benchmark 的默认 RL 候选数 k。
+  validation_states: 160          # 训练过程中固定 validation state 数。
+  eval_interval: 50               # 每隔多少 episode 做一次 validation。
+  elite_fraction: 0.08            # self-imitation replay 中保留 top 候选比例。
   replay_capacity: 100000
-  batch_size: 512
+  batch_size: 512                 # policy-gradient/replay 更新 batch size。
   replay_updates_per_step: 1
   learning_rate: 0.0004
   weight_decay: 0.0001
-  hidden_dim: 512
-  depth: 3
+  hidden_dim: 512                 # policy 网络隐藏维度。
+  depth: 3                        # policy MLP/RNN head 深度。
   dropout: 0.03
-  temperature_start: 1.2
-  temperature_end: 0.35
-  eval_temperature: 0.30
-  eval_temperatures: [0.12, 0.2, 0.3, 0.45]
-  greedy_candidates: 1
+  temperature_start: 1.2          # 训练早期采样温度，鼓励探索。
+  temperature_end: 0.35           # 训练后期采样温度，偏向 exploitation。
+  eval_temperature: 0.30          # benchmark 时的默认采样温度。
+  eval_temperatures: [0.12, 0.2, 0.3, 0.45]  # beam candidate 会混合多组温度。
+  greedy_candidates: 1            # 额外加入 greedy policy 候选数。
   policy_refine_steps: 0
   policy_refine_extra_candidates: 128
   policy_refine_temp_start: 0.02
   policy_refine_temp_end: 0.001
-  entropy_coef_start: 0.02
+  entropy_coef_start: 0.02        # 熵正则初始值，防止过早坍缩。
   entropy_coef_end: 0.002
-  advantage_scale: 4.0
-  reward_clip: 8.0
-  infeasible_penalty: 2.5
+  advantage_scale: 4.0            # advantage 放大系数。
+  reward_clip: 8.0                # 限制极端 reward/advantage，稳定训练。
+  infeasible_penalty: 2.5         # 可微训练损失里的不可行惩罚。
   infeasible_cost_weight: 0.02
   grad_clip: 1.0
-  teacher_states: 1000
-  teacher_updates: 1000
-  teacher_beam_width: 32
-  teacher_anneal_steps: 128
+  teacher_states: 1000            # teacher warm-start 使用多少个环境 state。
+  teacher_updates: 1000           # teacher replay 预训练更新步数。
+  teacher_beam_width: 32          # teacher 搜索里的 beam 宽度。
+  teacher_anneal_steps: 128       # teacher 搜索里的 simulated annealing 步数。
   teacher_eval_interval: 200
-  teacher_top_k: 6
-  teacher_weight_tau: 0.012
-  teacher_min_margin: 0.03
-  projection_mode: blocks
-  max_blocks: 5
-  candidate_mode: beam
+  teacher_top_k: 6                # 每个 teacher state 保留 top-k 动作作为监督。
+  teacher_weight_tau: 0.012       # teacher 动作权重温度，越小越偏向最好动作。
+  teacher_min_margin: 0.03        # teacher 动作相对 baseline 的最小筛选 margin。
+  projection_mode: blocks         # 将分配投影成连续 layer block，符合分布式流水式切分。
+  max_blocks: 5                   # 最多 5 个连续 block，通常不超过 UAV 数。
+  candidate_mode: beam            # inference 用 beam policy candidate，而不是纯随机采样。
   beam_temperature: 0.9
-  hard_baseline: best_nonrl
-  device: cuda
+  hard_baseline: best_nonrl       # hard-state 加权时使用的非 RL 参考 baseline。
+  device: cuda                    # policy 训练/推理设备。
+
+# 当前 README 使用的 benchmark 配置。
+# benchmark 命令会读取这里的 policy、state 数、seed 列表和强 baseline 搜索预算。
 benchmark:
   real_dir: results/qwen3_0p6b_real_profile
   policy: results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt
   out: results/benchmark_layer_calibrated_hard_k256_5seed
-  states: 64
-  seeds: "91,92,93,94,95"
-  beam_width: 32
-  anneal_steps: 128
-  autoreg_candidates: 256
+  states: 64                      # 每个 seed 采样 64 个测试 state，总数 64*5=320。
+  seeds: "91,92,93,94,95"         # 多 seed benchmark，README 表格来自这些结果。
+  beam_width: 32                  # 非 RL beam_search/block_beam baseline 预算。
+  anneal_steps: 128               # simulated annealing / LNS 类 baseline 预算。
+  autoreg_candidates: 256         # RL benchmark 候选池大小 k。
   device: cuda
+
+# 旧 DROS 输出目录，当前 README 主流程不使用。
 output:
   result_dir: results/dros_qwen3_0p6b_calibrated

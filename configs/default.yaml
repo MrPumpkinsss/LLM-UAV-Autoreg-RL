@@ -1,56 +1,72 @@
+# 通用默认 simulator 配置。
+# 这个文件作为模板/备用配置使用；README 主实验请优先看 qwen3/qwen35/gemma 的 calibrated 配置。
+
+# 全局随机种子。
 seed: 42
+
+# 默认 LLM profile 参数，数值接近 Qwen3-0.6B。
 profile:
-  model_name: Generic-LLM
-  num_layers: 28
-  hidden_size: 1024
-  intermediate_size: 3072
+  model_name: Generic-LLM        # 默认显示名称。
+  num_layers: 28                 # RL 动作长度 L。
+  hidden_size: 1024              # hidden dimension，用于估算 activation 和计算量。
+  intermediate_size: 3072        # FFN 中间层维度。
   num_attention_heads: 16
   num_key_value_heads: 8
   head_dim: 128
-  dtype_bytes: 2
+  dtype_bytes: 2                 # bfloat16/float16 约等于 2 bytes。
   sequence_length: 128
-  ppl_ref: 30.824672354565333
-  ppl_gamma: 10.899647591669423
+  ppl_ref: 30.824672354565333    # clean PPL 基准。
+  ppl_gamma: 10.899647591669423  # 旧全局 PPL surrogate 系数。
   real_profile_dir: results/qwen3_0p6b_real_profile
-  surrogate_mode: linear
-  layer_compute_jitter: 0.12
-  activation_jitter: 0.08
+  surrogate_mode: linear         # 默认使用线性/指数损伤 surrogate。
+  layer_compute_jitter: 0.12     # 层计算量扰动。
+  activation_jitter: 0.08        # activation 大小扰动。
+
+# UAV 状态采样范围；memory 和 energy 是硬约束。
 uav:
-  num_uavs: 5
-  area_m: 1000.0
-  altitude_m: 100.0
-  compute_ghz_min: 3.5
+  num_uavs: 5                    # UAV 数量，也是每层动作类别数。
+  area_m: 1000.0                 # UAV 随机分布区域边长。
+  altitude_m: 100.0              # 固定飞行高度。
+  compute_ghz_min: 3.5           # UAV 计算能力采样范围。
   compute_ghz_max: 8.0
-  mem_mb_min: 180.0
+  mem_mb_min: 180.0              # UAV 内存采样范围。
   mem_mb_max: 320.0
-  energy_j_min: 900.0
+  energy_j_min: 900.0            # UAV 可用能量采样范围。
   energy_j_max: 1600.0
-  tx_power_w: 1.0
-  compute_power_base_w: 1.5
-  compute_power_per_ghz_w: 0.45
-  hover_power_w_min: 35.0
+  tx_power_w: 1.0                # 通信发射功率。
+  compute_power_base_w: 1.5      # 计算功耗基础项。
+  compute_power_per_ghz_w: 0.45  # 计算功耗线性项。
+  hover_power_w_min: 35.0        # 悬停功耗采样范围。
   hover_power_w_max: 70.0
+
+# 无线链路和丢包模型。
 wireless:
-  bandwidth_hz: 2000000.0
-  bandwidth_allocation: kkt_closed_form
+  bandwidth_hz: 2000000.0        # 系统总带宽。
+  bandwidth_allocation: kkt_closed_form  # KKT 闭式带宽分配。
   noise_power_w: 1.0e-12
-  snr_threshold: 10.0
-  h0: 1.0e-05
-  path_loss_exp: 2.15
-  rayleigh_scale: 1.0
-  min_rate_bps: 1000.0
-  retransmissions: 1
+  snr_threshold: 10.0            # PDP 由 SNR 相对阈值决定。
+  h0: 1.0e-05                    # 参考信道增益。
+  path_loss_exp: 2.15            # 路损指数。
+  rayleigh_scale: 1.0            # Rayleigh fading 尺度。
+  min_rate_bps: 1000.0           # 速率数值下界。
+  retransmissions: 1             # 重传次数 r；residual loss = PDP^(r+1)。
+
+# Reward：feasible 时 reward = -[alpha * PPL_norm + beta * latency_norm]。
 reward:
-  alpha: 0.4
-  beta: 0.6
-  infeasible_reward: -100.0
-  latency_ref_s: 6.0
-  repair_energy_iters: 4
+  alpha: 0.4                     # PPL 项权重。
+  beta: 0.6                      # latency 项权重。
+  infeasible_reward: -100.0      # 不可行部署固定惩罚。
+  latency_ref_s: 6.0             # latency 归一化参考值。
+  repair_energy_iters: 4         # 能耗 repair 迭代次数。
+
+# 启发式 baseline 参数。
 heuristics:
   include_simple_heuristics_in_dros: true
   local_search_passes: 2
   local_search_seed_tries: 64
   include_local_search_in_dros: true
   evaluate_strong_baseline: true
+
+# 默认输出目录。
 output:
   result_dir: results/dros_generic_calibrated
