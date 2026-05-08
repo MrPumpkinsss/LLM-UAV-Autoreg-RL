@@ -461,7 +461,7 @@ def main() -> None:
     parser.add_argument("--eval-candidates", type=int, default=None)
     parser.add_argument("--teacher-states", type=int, default=None)
     parser.add_argument("--teacher-updates", type=int, default=None)
-    parser.add_argument("--num-uavs", type=int, default=5)
+    parser.add_argument("--num-uavs", type=int, default=None)
     parser.add_argument("--num-layers", type=int, default=None)
     parser.add_argument("--real-dir", default=None)
     parser.add_argument("--init-policy", default=None)
@@ -490,7 +490,8 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    cfg["uav"]["num_uavs"] = args.num_uavs
+    if args.num_uavs is not None:
+        cfg["uav"]["num_uavs"] = args.num_uavs
     if args.num_layers is not None:
         cfg["profile"]["num_layers"] = args.num_layers
     real_dir = Path(args.real_dir) if args.real_dir else (

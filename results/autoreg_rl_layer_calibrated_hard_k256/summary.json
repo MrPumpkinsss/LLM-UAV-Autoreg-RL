@@ -1,19 +1,19 @@
 {
-  "episodes": 800,
-  "runtime_s": 268.6661231517792,
+  "episodes": 2000,
+  "runtime_s": 3220.632087945938,
   "device": "cuda",
-  "teacher_reward_mean": null,
-  "hard_states": 71,
-  "hard_margin_mean": -0.04776682612892352,
-  "hard_margin_min": -1.065108705730899,
-  "hard_fraction": 0.5,
+  "teacher_reward_mean": -2.0646407666942994,
+  "hard_states": 0,
+  "hard_margin_mean": null,
+  "hard_margin_min": null,
+  "hard_fraction": 0.0,
   "final_eval": {
-    "reward": -0.5495891430949298,
-    "cost": 0.5495891430949298,
-    "latency_s": 2.748839157697217,
-    "ppl_hat": 51.972507496532096,
+    "reward": -0.7953191479517107,
+    "cost": 0.7953191479517107,
+    "latency_s": 2.7290607136791074,
+    "ppl_hat": 71.05342984773354,
     "feasible_rate": 1.0,
-    "feasible_candidates": 253.9453125,
-    "episode": 800
+    "feasible_candidates": 252.6125,
+    "episode": 2000
   }
 }

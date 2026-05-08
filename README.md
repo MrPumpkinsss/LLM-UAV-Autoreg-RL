@@ -14,7 +14,7 @@ Three model profiles are tracked:
 | `Qwen/Qwen3.5-4B` | larger-model experimental result | `results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt` | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` |
 | `google/gemma-4-E4B` | base-model exploratory result with curve surrogate | `results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt` | `results/benchmark_gemma4_e4b_teacher` |
 
-Gemma now uses a denser real-LLM embedding-drop profile and an empirical piecewise curve surrogate. Qwen3-0.6B remains the strongest paper-ready line because it also has layer-wise calibration and real action-level validation.
+Gemma now uses a denser real-LLM embedding-drop profile and an empirical piecewise curve surrogate. Qwen3-0.6B remains the most completely validated line because it has layer-wise calibration and real action-level validation, but the current tracked checkpoint is slightly below the strongest heuristic on mean simulator reward.
 
 ## Observation, Action, Reward
 
@@ -101,9 +101,9 @@ These are the main policy-comparison benchmarks. PPL is `PPL_hat`, not an online
 
 | model | artifact | states | RL reward | best non-RL reward | latency | PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Qwen3-0.6B | `results/benchmark_layer_calibrated_hard_k256_5seed` | 320 | -0.582559 | -0.591107 | 2.6099 | 55.5828 | 0.07472 | +0.008548 | 0.7844 |
-| Qwen3.5-4B | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` | 80 | -0.166181 | -0.164903 | 4.4404 | 13.4099 | 0.05481 | -0.001278 | 0.8750 |
-| Gemma-4-E4B | `results/benchmark_gemma4_e4b_teacher` | 192 | -0.278327 | -0.278862 | 9.2074 | 10.8012 | 0.07182 | +0.000534 | 0.7448 |
+| Qwen3-0.6B | `results/benchmark_layer_calibrated_hard_k256_5seed` | 320 | -0.595551 | -0.591107 | 2.6332 | 56.4038 | 0.11662 | -0.004444 | 0.6750 |
+| Qwen3.5-4B | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` | 80 | -0.165332 | -0.164903 | 4.4383 | 13.3855 | 0.06546 | -0.000429 | 0.9000 |
+| Gemma-4-E4B | `results/benchmark_gemma4_e4b_teacher` | 192 | -0.278169 | -0.278862 | 9.2066 | 10.7976 | 0.10900 | +0.000693 | 0.7552 |
 
 Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`.
 
@@ -111,31 +111,31 @@ Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_b
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.582559 | 1.0000 | 2.6099 | 55.5828 | 0.07472 |
-| hybrid_heuristic | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.01283 |
-| block_lns_strong | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.06759 |
-| block_beam_strong | -0.626139 | 1.0000 | 2.7118 | 58.1541 | 0.36108 |
-| beam_search | -13.959931 | 1.0000 | 3.1348 | 1081.9976 | 0.05740 |
+| block_lns_strong | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.09350 |
+| hybrid_heuristic | -0.591107 | 1.0000 | 2.6323 | 56.0683 | 0.01780 |
+| autoreg_rl_pure | -0.595551 | 1.0000 | 2.6332 | 56.4038 | 0.11662 |
+| block_beam_strong | -0.626139 | 1.0000 | 2.7118 | 58.1541 | 0.46330 |
+| beam_search | -13.959931 | 1.0000 | 3.1348 | 1081.9976 | 0.07487 |
 
 ### Qwen3.5-4B Methods
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| block_lns_strong | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.05874 |
-| hybrid_heuristic | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.01388 |
-| autoreg_rl_pure | -0.166181 | 1.0000 | 4.4404 | 13.4099 | 0.05481 |
-| block_beam_strong | -0.166586 | 1.0000 | 4.4711 | 13.3939 | 0.69404 |
-| beam_search | -0.742398 | 1.0000 | 4.7914 | 30.9303 | 0.06953 |
+| block_lns_strong | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.06806 |
+| hybrid_heuristic | -0.164903 | 1.0000 | 4.4400 | 13.3706 | 0.01581 |
+| autoreg_rl_pure | -0.165332 | 1.0000 | 4.4383 | 13.3855 | 0.06546 |
+| block_beam_strong | -0.166586 | 1.0000 | 4.4711 | 13.3939 | 0.75590 |
+| beam_search | -0.742398 | 1.0000 | 4.7914 | 30.9303 | 0.07716 |
 
 ### Gemma-4-E4B Methods
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.278327 | 1.0000 | 9.2074 | 10.8012 | 0.07182 |
-| hybrid_heuristic | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.01851 |
-| block_lns_strong | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.06608 |
-| block_beam_strong | -0.281125 | 1.0000 | 9.3036 | 10.7988 | 0.68703 |
-| beam_search | -0.304512 | 1.0000 | 10.0208 | 10.8491 | 0.14239 |
+| autoreg_rl_pure | -0.278169 | 1.0000 | 9.2066 | 10.7976 | 0.10900 |
+| hybrid_heuristic | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.02479 |
+| block_lns_strong | -0.278862 | 1.0000 | 9.2292 | 10.7980 | 0.08839 |
+| block_beam_strong | -0.281125 | 1.0000 | 9.3036 | 10.7988 | 0.83718 |
+| beam_search | -0.304512 | 1.0000 | 10.0208 | 10.8491 | 0.17713 |
 
 ## Real LLM Validation
 
@@ -218,75 +218,50 @@ Expected reproducibility scope:
 Train Qwen3-0.6B:
 
 ```powershell
-python -m src.train_autoreg_rl `
-  --config configs/qwen3_calibrated.yaml `
-  --out results/autoreg_rl_qwen3_0p6b_teacher_big `
-  --device cuda `
-  --episodes 2000 `
-  --batch-states 32 `
-  --candidates 256 `
-  --eval-candidates 256 `
-  --teacher-states 1000 `
-  --teacher-updates 1000 `
-  --projection-mode blocks `
-  --max-blocks 5 `
-  --candidate-mode beam
+python -m src.train_autoreg_rl --config configs/qwen3_calibrated.yaml
 ```
+
+Train Qwen3.5-4B:
+
+```powershell
+python -m src.train_autoreg_rl --config configs/qwen35_4b_calibrated.yaml
+```
+
+Train Gemma-4-E4B:
+
+```powershell
+python -m src.train_autoreg_rl --config configs/gemma4_base_calibrated.yaml
+```
+
+The config files contain the output directory, real-profile directory, teacher
+warm-start settings, candidate mode, projection mode, and CUDA device. Training
+is stochastic, so the exact checkpoint can vary across environments.
 
 Benchmark a trained policy:
 
 Qwen3-0.6B:
 
 ```powershell
-python -m src.benchmark_real_profile `
-  --config configs/qwen3_calibrated.yaml `
-  --policy results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt `
-  --states 64 `
-  --seeds "91,92,93,94,95" `
-  --beam-width 32 `
-  --anneal-steps 128 `
-  --autoreg-candidates 256 `
-  --out results/benchmark_layer_calibrated_hard_k256_5seed `
-  --device cuda
+python -m src.benchmark_real_profile --config configs/qwen3_calibrated.yaml
 ```
 
-Expected summary: `autoreg_rl_pure` reward `-0.582559`, `PPL_hat` `55.5828`, win/tie `0.7844`.
+Expected summary: `autoreg_rl_pure` reward `-0.595551`, `PPL_hat` `56.4038`, win/tie `0.6750`.
 
 Qwen3.5-4B:
 
 ```powershell
-python -m src.benchmark_real_profile `
-  --config configs/qwen35_4b_calibrated.yaml `
-  --real-dir results/qwen35_4b_real_profile_v2 `
-  --policy results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt `
-  --states 16 `
-  --seeds "91,92,93,94,95" `
-  --beam-width 32 `
-  --anneal-steps 128 `
-  --autoreg-candidates 256 `
-  --out results/benchmark_qwen35_4b_v2_teacher_big_5seed `
-  --device cuda
+python -m src.benchmark_real_profile --config configs/qwen35_4b_calibrated.yaml
 ```
 
-Expected summary: `autoreg_rl_pure` reward `-0.166181`, `PPL_hat` `13.4099`, win/tie `0.8750`.
+Expected summary: `autoreg_rl_pure` reward `-0.165332`, `PPL_hat` `13.3855`, win/tie `0.9000`.
 
 Gemma-4-E4B:
 
 ```powershell
-python -m src.benchmark_real_profile `
-  --config configs/gemma4_base_calibrated.yaml `
-  --real-dir results/gemma4_e4b_real_profile `
-  --policy results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt `
-  --states 64 `
-  --seeds "91,92,93" `
-  --beam-width 32 `
-  --anneal-steps 128 `
-  --autoreg-candidates 256 `
-  --out results/benchmark_gemma4_e4b_teacher `
-  --device cuda
+python -m src.benchmark_real_profile --config configs/gemma4_base_calibrated.yaml
 ```
 
-Expected summary: `autoreg_rl_pure` reward `-0.278327`, `PPL_hat` `10.8012`, win/tie `0.7448`.
+Expected summary: `autoreg_rl_pure` reward `-0.278169`, `PPL_hat` `10.7976`, win/tie `0.7552`.
 
 Run a surrogate benchmark:
 
@@ -350,7 +325,7 @@ curve, not held-out generalization.
 `-- README.md
 ```
 
-Generated experiment outputs are ignored by default. The repository tracks only curated best checkpoints, profile files, benchmark summaries/reports/rows, validation reports, surrogate summaries, and README figures. Raw training logs, teacher caches, stdout/stderr logs, smoke runs, and non-best checkpoints are intentionally not tracked.
+Generated experiment outputs are ignored by default. The repository tracks only curated best checkpoints, profile files, benchmark summaries/reports/rows, selected train/eval logs for README figures, validation reports, surrogate summaries, and README figures. Teacher caches, stdout/stderr logs, smoke runs, and non-best checkpoints are intentionally not tracked.
 
 ## Setup
 

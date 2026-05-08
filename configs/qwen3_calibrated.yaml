@@ -130,7 +130,7 @@ block_rl:
   teacher_eval_interval: 300
   device: cuda
 ar_rl:
-  result_dir: results/autoreg_rl_qwen3_0p6b_teacher_big
+  result_dir: results/autoreg_rl_layer_calibrated_hard_k256
   episodes: 2000
   batch_states: 32
   candidates: 256
@@ -175,6 +175,16 @@ ar_rl:
   candidate_mode: beam
   beam_temperature: 0.9
   hard_baseline: best_nonrl
+  device: cuda
+benchmark:
+  real_dir: results/qwen3_0p6b_real_profile
+  policy: results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt
+  out: results/benchmark_layer_calibrated_hard_k256_5seed
+  states: 64
+  seeds: "91,92,93,94,95"
+  beam_width: 32
+  anneal_steps: 128
+  autoreg_candidates: 256
   device: cuda
 output:
   result_dir: results/dros_qwen3_0p6b_calibrated

@@ -2,11 +2,12 @@
 
 - Train dir: `results/autoreg_rl_layer_calibrated_hard_k256`
 - Benchmark dir: `results/benchmark_layer_calibrated_hard_k256_5seed`
-- Autoreg-RL margin mean: `0.00854810`
-- Autoreg-RL win/tie rate: `0.7844`
+- Autoreg-RL margin mean: `-0.00444393`
+- Autoreg-RL win/tie rate: `0.6750`
 
 ## Generated Files
 
+- `training_curves.png`
 - `benchmark_reward_bar.png`
 - `benchmark_feasibility_bar.png`
 - `margin_histogram.png`

@@ -12,9 +12,10 @@
     "sequence_length": 128,
     "ppl_ref": 30.824672354565333,
     "ppl_gamma": 10.899647591669423,
+    "real_profile_dir": "results/qwen3_0p6b_real_profile",
+    "surrogate_mode": "linear",
     "layer_compute_jitter": 0.12,
-    "activation_jitter": 0.08,
-    "real_profile_dir": "results/qwen3_0p6b_real_profile"
+    "activation_jitter": 0.08
   },
   "uav": {
     "num_uavs": 5,
@@ -138,12 +139,12 @@
     "device": "cuda"
   },
   "ar_rl": {
-    "result_dir": "results/autoreg_rl_qwen3_0p6b",
-    "episodes": 800,
+    "result_dir": "results/autoreg_rl_layer_calibrated_hard_k256",
+    "episodes": 2000,
     "batch_states": 32,
     "candidates": 256,
     "eval_candidates": 256,
-    "validation_states": 128,
+    "validation_states": 160,
     "eval_interval": 50,
     "elite_fraction": 0.08,
     "replay_capacity": 100000,
@@ -175,24 +176,31 @@
     "infeasible_penalty": 2.5,
     "infeasible_cost_weight": 0.02,
     "grad_clip": 1.0,
-    "teacher_states": 0,
-    "teacher_updates": 0,
+    "teacher_states": 1000,
+    "teacher_updates": 1000,
     "teacher_beam_width": 32,
     "teacher_anneal_steps": 128,
     "teacher_eval_interval": 200,
-    "device": "cuda",
+    "teacher_top_k": 6,
+    "teacher_weight_tau": 0.012,
+    "teacher_min_margin": 0.03,
     "projection_mode": "blocks",
     "max_blocks": 5,
     "candidate_mode": "beam",
-    "beam_temperature": 1.0,
-    "hard_benchmark_rows": "results/benchmark_layer_calibrated_k256_stronger_5seed/benchmark_rows.csv",
+    "beam_temperature": 0.9,
     "hard_baseline": "best_nonrl",
-    "hard_margin_threshold": -1e-09,
-    "hard_max_states": 96,
-    "hard_fraction": 0.5,
-    "hard_weight_scale": 24.0,
-    "hard_min_weight": 1.0,
-    "hard_max_weight": 16.0
+    "device": "cuda"
+  },
+  "benchmark": {
+    "real_dir": "results/qwen3_0p6b_real_profile",
+    "policy": "results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt",
+    "out": "results/benchmark_layer_calibrated_hard_k256_5seed",
+    "states": 64,
+    "seeds": "91,92,93,94,95",
+    "beam_width": 32,
+    "anneal_steps": 128,
+    "autoreg_candidates": 256,
+    "device": "cuda"
   },
   "output": {
     "result_dir": "results/dros_qwen3_0p6b_calibrated"

@@ -12,10 +12,10 @@
     "sequence_length": 64,
     "ppl_ref": 12.508157074727082,
     "ppl_gamma": 196.06855947881232,
+    "real_profile_dir": "results/qwen35_4b_real_profile_v2",
     "surrogate_mode": "linear",
     "layer_compute_jitter": 0.12,
-    "activation_jitter": 0.08,
-    "real_profile_dir": "results/qwen35_4b_real_profile_v2"
+    "activation_jitter": 0.08
   },
   "uav": {
     "num_uavs": 5,
@@ -59,7 +59,7 @@
     "evaluate_strong_baseline": true
   },
   "ar_rl": {
-    "result_dir": "results/autoreg_rl_qwen35_4b",
+    "result_dir": "results/autoreg_rl_qwen35_4b_v2_teacher_big",
     "episodes": 2000,
     "batch_states": 32,
     "candidates": 256,
@@ -105,11 +105,22 @@
     "max_blocks": 5,
     "candidate_mode": "beam",
     "beam_temperature": 0.9,
-    "device": "cuda",
     "teacher_top_k": 6,
     "teacher_weight_tau": 0.012,
     "teacher_min_margin": 0.03,
-    "hard_baseline": "best_nonrl"
+    "hard_baseline": "best_nonrl",
+    "device": "cuda"
+  },
+  "benchmark": {
+    "real_dir": "results/qwen35_4b_real_profile_v2",
+    "policy": "results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt",
+    "out": "results/benchmark_qwen35_4b_v2_teacher_big_5seed",
+    "states": 16,
+    "seeds": "91,92,93,94,95",
+    "beam_width": 32,
+    "anneal_steps": 128,
+    "autoreg_candidates": 256,
+    "device": "cuda"
   },
   "output": {
     "result_dir": "results/qwen35_4b_calibrated"

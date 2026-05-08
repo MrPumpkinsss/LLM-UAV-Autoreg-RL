@@ -52,13 +52,13 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/qwen3_calibrated.yaml")
     parser.add_argument("--real-dir", default=None)
-    parser.add_argument("--policy", default="results/autoreg_rl_teacher/autoreg_policy_best.pt")
-    parser.add_argument("--states", type=int, default=64)
-    parser.add_argument("--seeds", default="91,92,93")
-    parser.add_argument("--beam-width", type=int, default=32)
-    parser.add_argument("--anneal-steps", type=int, default=128)
-    parser.add_argument("--autoreg-candidates", type=int, default=64)
-    parser.add_argument("--autoreg-refine-steps", type=int, default=0)
+    parser.add_argument("--policy", default=None)
+    parser.add_argument("--states", type=int, default=None)
+    parser.add_argument("--seeds", default=None)
+    parser.add_argument("--beam-width", type=int, default=None)
+    parser.add_argument("--anneal-steps", type=int, default=None)
+    parser.add_argument("--autoreg-candidates", type=int, default=None)
+    parser.add_argument("--autoreg-refine-steps", type=int, default=None)
     parser.add_argument("--projection-mode", default=None)
     parser.add_argument("--max-blocks", type=int, default=None)
     parser.add_argument("--candidate-mode", default=None)
@@ -66,54 +66,71 @@ def main() -> None:
     parser.add_argument("--candidate-overgenerate", type=int, default=None)
     parser.add_argument("--candidate-beam-count", type=int, default=None)
     parser.add_argument("--candidate-min-hamming", type=int, default=None)
-    parser.add_argument("--out", default="results/benchmark_real_profile_k64")
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--out", default=None)
+    parser.add_argument("--device", default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
-    cfg["uav"]["num_uavs"] = 5
-    cfg.setdefault("ar_rl", {})["policy_refine_steps"] = args.autoreg_refine_steps
+    bench_cfg = dict(cfg.get("benchmark", {}))
+    ar_cfg = cfg.setdefault("ar_rl", {})
+    if args.autoreg_refine_steps is not None:
+        ar_cfg["policy_refine_steps"] = args.autoreg_refine_steps
+    elif "autoreg_refine_steps" in bench_cfg:
+        ar_cfg["policy_refine_steps"] = int(bench_cfg["autoreg_refine_steps"])
     if args.projection_mode is not None:
-        cfg.setdefault("ar_rl", {})["projection_mode"] = args.projection_mode
+        ar_cfg["projection_mode"] = args.projection_mode
     if args.max_blocks is not None:
-        cfg.setdefault("ar_rl", {})["max_blocks"] = args.max_blocks
+        ar_cfg["max_blocks"] = args.max_blocks
     if args.candidate_mode is not None:
-        cfg.setdefault("ar_rl", {})["candidate_mode"] = args.candidate_mode
+        ar_cfg["candidate_mode"] = args.candidate_mode
     if args.beam_temperature is not None:
-        cfg.setdefault("ar_rl", {})["beam_temperature"] = args.beam_temperature
+        ar_cfg["beam_temperature"] = args.beam_temperature
     if args.candidate_overgenerate is not None:
-        cfg.setdefault("ar_rl", {})["candidate_overgenerate"] = args.candidate_overgenerate
+        ar_cfg["candidate_overgenerate"] = args.candidate_overgenerate
     if args.candidate_beam_count is not None:
-        cfg.setdefault("ar_rl", {})["candidate_beam_count"] = args.candidate_beam_count
+        ar_cfg["candidate_beam_count"] = args.candidate_beam_count
     if args.candidate_min_hamming is not None:
-        cfg.setdefault("ar_rl", {})["candidate_min_hamming"] = args.candidate_min_hamming
-    out_dir = ensure_dir(args.out)
+        ar_cfg["candidate_min_hamming"] = args.candidate_min_hamming
+
+    real_dir_arg = args.real_dir or bench_cfg.get("real_dir")
+    policy_path = Path(args.policy or bench_cfg.get("policy") or Path(ar_cfg.get("result_dir", "results/autoreg_rl")) / "autoreg_policy_best.pt")
+    states = int(args.states if args.states is not None else bench_cfg.get("states", 64))
+    seeds_text = str(args.seeds if args.seeds is not None else bench_cfg.get("seeds", "91,92,93"))
+    beam_width = int(args.beam_width if args.beam_width is not None else bench_cfg.get("beam_width", 32))
+    anneal_steps = int(args.anneal_steps if args.anneal_steps is not None else bench_cfg.get("anneal_steps", 128))
+    autoreg_candidates = int(
+        args.autoreg_candidates
+        if args.autoreg_candidates is not None
+        else bench_cfg.get("autoreg_candidates", ar_cfg.get("eval_candidates", 64))
+    )
+    device = str(args.device or bench_cfg.get("device", ar_cfg.get("device", "cuda")))
+    out_dir = ensure_dir(args.out or bench_cfg.get("out", "results/benchmark_real_profile_k64"))
     rows: list[dict] = []
 
-    for seed_text in args.seeds.split(","):
+    for seed_text in seeds_text.split(","):
         seed = int(seed_text.strip())
         set_seed(seed)
         rng = np.random.default_rng(seed)
-        profile = build_real_profile(cfg, resolve_real_dir(cfg, args.real_dir), rng)
+        profile = build_real_profile(cfg, resolve_real_dir(cfg, real_dir_arg), rng)
         env = LLMUAVEnv(cfg, profile, rng)
-        agent = AutoregRLAgent(env, cfg, args.device, rng)
-        state_dict = torch.load(Path(args.policy), map_location=agent.device)
+        agent = AutoregRLAgent(env, cfg, device, rng)
+        state_dict = torch.load(policy_path, map_location=agent.device)
         agent.policy.load_state_dict(state_dict)
 
-        for sid in range(args.states):
+        for sid in range(states):
             state = env.sample_state()
             heuristic_methods = evaluate_full_benchmark_timed(
                 env,
                 state,
                 rng,
-                beam_width=args.beam_width,
-                anneal_steps=args.anneal_steps,
+                beam_width=beam_width,
+                anneal_steps=anneal_steps,
             )
 
             started = time.perf_counter()
             selected = agent.select_policy_candidate(
                 state,
-                candidates=args.autoreg_candidates,
+                candidates=autoreg_candidates,
                 temperature=float(cfg.get("ar_rl", {}).get("eval_temperature", 0.30)),
             )
             rl_runtime = time.perf_counter() - started
@@ -144,7 +161,7 @@ def main() -> None:
                     }
                 )
             if (sid + 1) % 25 == 0:
-                print(f"seed={seed} states={sid + 1}/{args.states}", flush=True)
+                print(f"seed={seed} states={sid + 1}/{states}", flush=True)
 
     write_csv(out_dir / "benchmark_rows.csv", rows)
     df = pd.DataFrame(rows)
@@ -178,7 +195,7 @@ def main() -> None:
         f"# Real {profile.model_name} Profile Benchmark",
         "",
         f"States: `{margin_summary['states']}`",
-        f"Real profile directory: `{resolve_real_dir(cfg, args.real_dir).as_posix()}`",
+        f"Real profile directory: `{resolve_real_dir(cfg, real_dir_arg).as_posix()}`",
         "",
         "| method | reward | feasible | latency | PPL | runtime_s |",
         "|---|---:|---:|---:|---:|---:|",

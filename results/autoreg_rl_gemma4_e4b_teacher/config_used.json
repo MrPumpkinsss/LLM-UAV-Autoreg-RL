@@ -13,7 +13,7 @@
     "ppl_ref": 10.74465168178793,
     "ppl_gamma": 7.6656569992961865,
     "real_profile_dir": "results/gemma4_e4b_real_profile",
-    "surrogate_mode": "linear",
+    "surrogate_mode": "curve",
     "layer_compute_jitter": 0.12,
     "activation_jitter": 0.08
   },
@@ -59,7 +59,7 @@
     "evaluate_strong_baseline": true
   },
   "ar_rl": {
-    "result_dir": "results/autoreg_rl_gemma4_e4b",
+    "result_dir": "results/autoreg_rl_gemma4_e4b_teacher",
     "episodes": 800,
     "batch_states": 8,
     "candidates": 96,
@@ -105,10 +105,21 @@
     "max_blocks": 5,
     "candidate_mode": "beam",
     "beam_temperature": 1.0,
-    "device": "cuda",
     "teacher_top_k": 4,
     "teacher_weight_tau": 0.02,
-    "hard_baseline": "best_nonrl"
+    "hard_baseline": "best_nonrl",
+    "device": "cuda"
+  },
+  "benchmark": {
+    "real_dir": "results/gemma4_e4b_real_profile",
+    "policy": "results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt",
+    "out": "results/benchmark_gemma4_e4b_teacher",
+    "states": 64,
+    "seeds": "91,92,93",
+    "beam_width": 32,
+    "anneal_steps": 128,
+    "autoreg_candidates": 256,
+    "device": "cuda"
   },
   "output": {
     "result_dir": "results/gemma4_e4b_calibrated"
