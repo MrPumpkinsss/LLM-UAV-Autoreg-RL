@@ -113,10 +113,12 @@ The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual 
 
 | model | artifact | states | RL reward | best non-RL reward | latency | PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Qwen3-0.6B | `results/benchmark_qwen3_0p6b_no_retrans_5seed` | 320 | -105.841463 | -7.494184 | 2.6158 | 8163.6245 | 0.19954 | -98.347279 | 0.5906 |
-| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_5seed` | 80 | -1.679301 | -0.576225 | 4.7772 | 59.9611 | 0.11368 | -1.103076 | 0.2125 |
+| Qwen3-0.6B | `results/benchmark_qwen3_0p6b_no_retrans_5seed` | 320 | -105.841463 | -7.494184 | 2.6158 | 8163.6245 | 0.20098 | -98.347279 | 0.5906 |
+| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_5seed` | 80 | -1.679301 | -0.576225 | 4.7772 | 59.9611 | 0.11543 | -1.103076 | 0.2125 |
 
-For Qwen3-0.6B, the RL policy remains feasible and low-latency, but mean reward is dominated by rare high-PPL outliers under raw PDP. For Qwen3.5-4B, retraining recovers feasible policies, but the strongest non-RL block heuristic still has better mean reward in this ablation.
+For Qwen3-0.6B, the RL policy remains feasible and low-latency, but mean reward is highly sensitive to high-PPL outliers under raw PDP. For Qwen3.5-4B, retraining recovers feasible policies, but the strongest non-RL block heuristic still has better mean reward in this ablation.
+
+The method tables below report the default retransmission-aware benchmark (`wireless.retransmissions = 1`). The no-retransmission (`r = 0`) rerun is intentionally kept in the ablation table above.
 
 ### Qwen3-0.6B Methods
 
