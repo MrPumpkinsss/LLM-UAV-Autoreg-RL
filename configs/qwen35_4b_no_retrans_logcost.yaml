@@ -106,10 +106,10 @@ ar_rl:
   teacher_top_k: 6
   teacher_weight_tau: 0.012
   teacher_min_margin: 0.03
-  projection_mode: blocks
+  projection_mode: blocks_fast
   max_blocks: 5
   candidate_mode: beam
-  candidate_overgenerate: 2
+  candidate_overgenerate: 1
   beam_temperature: 0.9
   hard_baseline: best_nonrl
   hard_benchmark_rows: results/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/hard_states_used.csv
@@ -124,12 +124,14 @@ ar_rl:
 benchmark:
   real_dir: results/qwen35_4b_real_profile_v2
   policy: results/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/autoreg_policy_best.pt
-  out: results/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_5seed
+  out: results/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed
   states: 64
   seeds: "91,92,93,94,95"
   beam_width: 32
   anneal_steps: 128
   autoreg_candidates: 1024
+  projection_mode: blocks_fast
+  candidate_overgenerate: 1
   device: cuda
 
 output:

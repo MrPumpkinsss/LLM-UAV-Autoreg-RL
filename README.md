@@ -116,9 +116,9 @@ The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual 
 | model | artifact | states | RL reward | best non-RL | best non-RL reward | RL latency | RL PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
 | Qwen3-0.6B | `results/benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed` | 320 | -0.257262 | `hybrid_heuristic` | -0.259101 | 2.3714 | 32.4630 | 0.11442 | +0.001839 | 0.8938 |
-| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_5seed` | 320 | -0.244537 | `hybrid_heuristic` | -0.245694 | 4.5543 | 18.9674 | 0.84879 | +0.001157 | 0.7313 |
+| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed` | 320 | -0.244603 | `hybrid_heuristic` | -0.245694 | 4.5541 | 18.9752 | 0.08076 | +0.001091 | 0.7313 |
 
-For Qwen3-0.6B, the log-cost and dense raw-drop calibration remove the pathological PPL tail, and hard-state fine-tuning raises the win/tie rate to `0.8938`. For Qwen3.5-4B, the final no-retransmission result uses the layer-wise MLP surrogate, hard-state fine-tuning, and a larger pure-policy inference pool (`k=1024`). The RL candidate pool still contains only learned-policy actions; strong heuristics are benchmark baselines and hard-state training teachers only.
+For Qwen3-0.6B, the log-cost and dense raw-drop calibration remove the pathological PPL tail, and hard-state fine-tuning raises the win/tie rate to `0.8938`. For Qwen3.5-4B, the final no-retransmission result uses the layer-wise MLP surrogate, hard-state fine-tuning, a larger pure-policy inference pool (`k=1024`), fast block projection, and batched candidate scoring. The RL candidate pool still contains only learned-policy actions; strong heuristics are benchmark baselines and hard-state training teachers only.
 
 The method tables below compare `autoreg_rl_pure` with the strongest heuristic baselines under both retransmission settings. The `r = 1` tables are the default retransmission-aware benchmark. The `r = 0` tables use log-cost hard-state reruns.
 
@@ -168,7 +168,7 @@ The method tables below compare `autoreg_rl_pure` with the strongest heuristic b
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -0.244537 | 1.0000 | 4.5543 | 18.9674 | 0.84879 |
+| autoreg_rl_pure | -0.244603 | 1.0000 | 4.5541 | 18.9752 | 0.08076 |
 | hybrid_heuristic | -0.245694 | 1.0000 | 4.5491 | 19.4734 | 0.02542 |
 | block_lns_strong | -0.247842 | 1.0000 | 4.5387 | 19.9200 | 0.10289 |
 | block_beam_strong | -0.252809 | 1.0000 | 4.5648 | 20.3846 | 3.65250 |
@@ -322,7 +322,7 @@ conda run -n LLM-UAV python -m src.train_autoreg_rl `
   --config configs/qwen35_4b_no_retrans_logcost.yaml
 ```
 
-The no-retransmission configs are hard-state fine-tunes. They use tracked compact hard-state specs in `hard_states_used.csv` and the released hard checkpoints for final benchmarking. The training commands above are runnable stochastic retraining commands; the table values are reproduced by benchmarking the tracked checkpoints. To regenerate the exact hard-state specs from scratch, first run a base log-cost benchmark, then point `ar_rl.hard_benchmark_rows` at that base `benchmark_rows.csv`. The Qwen3.5-4B final benchmark uses `k=1024` learned-policy candidates; this is slower than `k=256` but was needed to reliably beat the strongest heuristic on the 320-state benchmark.
+The no-retransmission configs are hard-state fine-tunes. They use tracked compact hard-state specs in `hard_states_used.csv` and the released hard checkpoints for final benchmarking. The training commands above are runnable stochastic retraining commands; the table values are reproduced by benchmarking the tracked checkpoints. To regenerate the exact hard-state specs from scratch, first run a base log-cost benchmark, then point `ar_rl.hard_benchmark_rows` at that base `benchmark_rows.csv`. The Qwen3.5-4B final benchmark uses `k=1024` learned-policy candidates with fast block projection and batched scoring, so it keeps the win/tie improvement without the old high runtime.
 
 Benchmark the no-retransmission checkpoints:
 
@@ -334,7 +334,7 @@ conda run -n LLM-UAV python -m src.benchmark_real_profile `
   --config configs/qwen35_4b_no_retrans_logcost.yaml
 ```
 
-Expected no-retransmission summaries: Qwen3-0.6B log-cost/raw-dense hard-state `autoreg_rl_pure` reward `-0.257262`, `PPL_hat` `32.4630`, win/tie `0.8938`; Qwen3.5-4B log-cost hard-state `autoreg_rl_pure` reward `-0.244537`, `PPL_hat` `18.9674`, win/tie `0.7313`.
+Expected no-retransmission summaries: Qwen3-0.6B log-cost/raw-dense hard-state `autoreg_rl_pure` reward `-0.257262`, `PPL_hat` `32.4630`, win/tie `0.8938`; Qwen3.5-4B log-cost hard-state `autoreg_rl_pure` reward `-0.244603`, `PPL_hat` `18.9752`, win/tie `0.7313`.
 
 Run a surrogate benchmark:
 
@@ -402,7 +402,7 @@ curve, not held-out generalization.
 |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
 |   |-- benchmark_gemma4_e4b_teacher/
 |   |-- benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed/
-|   |-- benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_5seed/
+|   |-- benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed/
 |   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   |-- surrogate_benchmark_qwen3_0p6b/
 |   |-- surrogate_benchmark_qwen3_0p6b_raw_dense/
