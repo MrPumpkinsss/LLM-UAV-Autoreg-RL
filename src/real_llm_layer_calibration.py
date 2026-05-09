@@ -108,7 +108,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Calibrate real layer-wise PPL sensitivity for a loaded LLM.")
     parser.add_argument("--config", default="configs/real_llm.yaml")
-    parser.add_argument("--out-dir", default="results/qwen3_0p6b_real_profile")
+    parser.add_argument("--out-dir", default="results/qwen3_0p6b/qwen3_0p6b_real_profile")
     parser.add_argument("--layer-drop-rates", default="0.0,0.005,0.01,0.02,0.05,0.08")
     parser.add_argument("--corruption-trials", type=int, default=4)
     parser.add_argument("--max-length", type=int, default=None)
@@ -160,7 +160,7 @@ def main() -> None:
         else:
             summary_path = out_dir / "real_profile_summary.json"
             if not summary_path.exists():
-                summary_path = Path(cfg.get("output_dir", "results/qwen3_0p6b_real_profile")) / "real_profile_summary.json"
+                summary_path = Path(cfg.get("output_dir", "results/qwen3_0p6b/qwen3_0p6b_real_profile")) / "real_profile_summary.json"
             clean_ppl = float(json.loads(summary_path.read_text(encoding="utf-8"))["ppl_ref"])
 
     rows: list[dict[str, Any]] = []

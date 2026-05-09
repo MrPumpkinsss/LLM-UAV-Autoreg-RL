@@ -19,12 +19,12 @@ def load_margin(path: Path) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--k16-dir", default="results/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed")
-    parser.add_argument("--k64-dir", default="results/benchmark_real_profile_k64_blocks_policy_beam_5seed")
-    parser.add_argument("--k128-dir", default="results/benchmark_real_profile_k128_blocks_fast_policy_beam_5seed")
-    parser.add_argument("--k256-dir", default="results/benchmark_real_profile_k256_blocks_fast_policy_beam_5seed")
-    parser.add_argument("--policy", default="results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt")
-    parser.add_argument("--out-dir", default="results/benchmark_real_profile_k_sweep_fast_5seed")
+    parser.add_argument("--k16-dir", default="results/qwen3_0p6b/benchmark_real_profile_k16_blocks_policy_beam_over4_5seed")
+    parser.add_argument("--k64-dir", default="results/qwen3_0p6b/benchmark_real_profile_k64_blocks_policy_beam_5seed")
+    parser.add_argument("--k128-dir", default="results/qwen3_0p6b/benchmark_real_profile_k128_blocks_fast_policy_beam_5seed")
+    parser.add_argument("--k256-dir", default="results/qwen3_0p6b/benchmark_real_profile_k256_blocks_fast_policy_beam_5seed")
+    parser.add_argument("--policy", default="results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt")
+    parser.add_argument("--out-dir", default="results/qwen3_0p6b/benchmark_real_profile_k_sweep_fast_5seed")
     args = parser.parse_args()
 
     k_dirs = {

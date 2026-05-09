@@ -10,9 +10,9 @@ Three model profiles are tracked:
 
 | model | status | policy checkpoint | benchmark |
 |---|---|---|---|
-| `Qwen/Qwen3-0.6B` | main validated result | `results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt` | `results/benchmark_layer_calibrated_hard_k256_5seed` |
-| `Qwen/Qwen3.5-4B` | larger-model experimental result | `results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt` | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` |
-| `google/gemma-4-E4B` | base-model exploratory result with curve surrogate | `results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt` | `results/benchmark_gemma4_e4b_teacher` |
+| `Qwen/Qwen3-0.6B` | main validated result | `results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt` | `results/qwen3_0p6b/benchmark_layer_calibrated_hard_k256_5seed` |
+| `Qwen/Qwen3.5-4B` | larger-model experimental result | `results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt` | `results/qwen35_4b/benchmark_qwen35_4b_v2_teacher_big_5seed` |
+| `google/gemma-4-E4B` | base-model exploratory result with curve surrogate | `results/gemma4_e4b/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt` | `results/gemma4_e4b/benchmark_gemma4_e4b_teacher` |
 
 Gemma now uses a denser real-LLM embedding-drop profile and an empirical piecewise curve surrogate. Qwen3-0.6B remains the most completely validated line because it has layer-wise calibration and real action-level validation. With pure learned-policy candidates and overgenerate-then-deduplicate beam inference, all three tracked simulator benchmarks now beat the strongest non-RL baseline on mean reward.
 
@@ -109,9 +109,9 @@ These are the main policy-comparison benchmarks. PPL is `PPL_hat`, not an online
 
 | model | artifact | states | RL reward | best non-RL | best non-RL reward | RL latency | RL PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
-| Qwen3-0.6B | `results/benchmark_layer_calibrated_hard_k256_5seed` | 320 | -0.571681 | `hybrid_heuristic` | -0.591107 | 2.6322 | 54.5724 | 0.21232 | +0.019426 | 0.6813 |
-| Qwen3.5-4B | `results/benchmark_qwen35_4b_v2_teacher_big_5seed` | 80 | -0.164647 | `hybrid_heuristic` | -0.164903 | 4.4425 | 13.3604 | 0.11292 | +0.000256 | 0.9250 |
-| Gemma-4-E4B | `results/benchmark_gemma4_e4b_teacher` | 192 | -0.278169 | `hybrid_heuristic` | -0.278862 | 9.2066 | 10.7976 | 0.10848 | +0.000693 | 0.7552 |
+| Qwen3-0.6B | `results/qwen3_0p6b/benchmark_layer_calibrated_hard_k256_5seed` | 320 | -0.571681 | `hybrid_heuristic` | -0.591107 | 2.6322 | 54.5724 | 0.21232 | +0.019426 | 0.6813 |
+| Qwen3.5-4B | `results/qwen35_4b/benchmark_qwen35_4b_v2_teacher_big_5seed` | 80 | -0.164647 | `hybrid_heuristic` | -0.164903 | 4.4425 | 13.3604 | 0.11292 | +0.000256 | 0.9250 |
+| Gemma-4-E4B | `results/gemma4_e4b/benchmark_gemma4_e4b_teacher` | 192 | -0.278169 | `hybrid_heuristic` | -0.278862 | 9.2066 | 10.7976 | 0.10848 | +0.000693 | 0.7552 |
 
 Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_beam_strong`, `beam_search`, `simulated_annealing`, `local_search`, `pdp_aware_greedy`, `latency_greedy`, `block_balanced`, and `random`.
 
@@ -121,8 +121,8 @@ The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual 
 
 | model | artifact | states | RL reward | best non-RL | best non-RL reward | RL latency | RL PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
-| Qwen3-0.6B | `results/benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed` | 320 | -0.257262 | `hybrid_heuristic` | -0.259101 | 2.3714 | 32.4630 | 0.11442 | +0.001839 | 0.8938 |
-| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed` | 320 | -0.244603 | `hybrid_heuristic` | -0.245694 | 4.5541 | 18.9752 | 0.08076 | +0.001091 | 0.7313 |
+| Qwen3-0.6B | `results/qwen3_0p6b/benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed` | 320 | -0.257262 | `hybrid_heuristic` | -0.259101 | 2.3714 | 32.4630 | 0.11442 | +0.001839 | 0.8938 |
+| Qwen3.5-4B | `results/qwen35_4b/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed` | 320 | -0.244603 | `hybrid_heuristic` | -0.245694 | 4.5541 | 18.9752 | 0.08076 | +0.001091 | 0.7313 |
 
 For Qwen3-0.6B, the log-cost and dense raw-drop calibration remove the pathological PPL tail, and hard-state fine-tuning raises the win/tie rate to `0.8938`. For Qwen3.5-4B, the final no-retransmission result uses the layer-wise MLP surrogate, hard-state fine-tuning, a larger pure-policy inference pool (`k=1024`), fast block projection, and batched candidate scoring. The RL candidate pool still contains only learned-policy actions; strong heuristics are benchmark baselines and hard-state training teachers only.
 
@@ -188,7 +188,7 @@ Real LLM validation recomputes paper-formula PPL for selected deployment actions
 
 | model | artifact | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman | status |
 |---|---|---:|---:|---:|---:|---:|---:|---|
-| Qwen3-0.6B | `results/real_action_ppl_validation_layer_calibrated_retrained` | 64 competitive | 0.023323 | 0.216265 | 0.052984 | 0.996233 | 0.973764 | validated |
+| Qwen3-0.6B | `results/qwen3_0p6b/real_action_ppl_validation_layer_calibrated_retrained` | 64 competitive | 0.023323 | 0.216265 | 0.052984 | 0.996233 | 0.973764 | validated |
 | Qwen3.5-4B | not available | 0 | - | - | - | - | - | pending |
 | Gemma-4-E4B | not available | 0 | - | - | - | - | - | pending |
 
@@ -198,12 +198,12 @@ Surrogate quality is reported separately for each model. These benchmarks are ca
 
 | model | surrogate artifact | clean PPL | fit type | R2 | RMSE log-ratio | mean rel error | max rel error | interpretation |
 |---|---|---:|---|---:|---:|---:|---:|---|
-| Qwen3-0.6B | `results/surrogate_benchmark_qwen3_0p6b` | 30.811979 | embedding exponential + layer gamma | 0.997363 | 0.019289 | 0.015285 | 0.030760 | strong |
-| Qwen3-0.6B raw-dense | `results/surrogate_benchmark_qwen3_0p6b_raw_dense` | 30.811979 | embedding exponential + piecewise curve | 1.000000 | 0.000000 | 0.000000 | 0.000000 | dense raw-drop calibration; piecewise fit on 13 sampled points |
-| Qwen3.5-4B | `results/surrogate_benchmark_qwen35_4b_v2` | 12.388740 | layer one-hot MLP | 0.999725 | 0.001998 | - | - | strongest surrogate fit |
-| Gemma-4-E4B | `results/surrogate_benchmark_gemma4_e4b` | 10.744652 | empirical piecewise curve | 1.000000 | 0.000000 | 0.000000 | 0.000000 | fit R2 target met; exponential baseline R2 0.891476 |
+| Qwen3-0.6B | `results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b` | 30.811979 | embedding exponential + layer gamma | 0.997363 | 0.019289 | 0.015285 | 0.030760 | strong |
+| Qwen3-0.6B raw-dense | `results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b_raw_dense` | 30.811979 | embedding exponential + piecewise curve | 1.000000 | 0.000000 | 0.000000 | 0.000000 | dense raw-drop calibration; piecewise fit on 13 sampled points |
+| Qwen3.5-4B | `results/qwen35_4b/surrogate_benchmark_qwen35_4b_v2` | 12.388740 | layer one-hot MLP | 0.999725 | 0.001998 | - | - | strongest surrogate fit |
+| Gemma-4-E4B | `results/gemma4_e4b/surrogate_benchmark_gemma4_e4b` | 10.744652 | empirical piecewise curve | 1.000000 | 0.000000 | 0.000000 | 0.000000 | fit R2 target met; exponential baseline R2 0.891476 |
 
-Qwen3.5 also has a high-quality layer-wise analytic calibration: layer gamma sum `206.094048`, mean layer R2 `0.995787`, and layer RMSE log-ratio `0.006596`. Gemma's curve surrogate is fitted on 9 sampled embedding-drop points; it meets the R2 target on that curve, but it is still not a full layer-wise calibration. A compact cross-model surrogate report is stored at `results/surrogate_benchmark_multi_model_report.md`.
+Qwen3.5 also has a high-quality layer-wise analytic calibration: layer gamma sum `206.094048`, mean layer R2 `0.995787`, and layer RMSE log-ratio `0.006596`. Gemma's curve surrogate is fitted on 9 sampled embedding-drop points; it meets the R2 target on that curve, but it is still not a full layer-wise calibration. A compact cross-model surrogate report is stored at `results/cross_model/surrogate_benchmark_multi_model_report.md`.
 
 ### How the surrogate benchmarks are built
 
@@ -211,37 +211,37 @@ All surrogate benchmarks use a real-LLM profile directory, then compare surrogat
 
 | model | real profile source | validation texts | corruption grid | trials per point | rows in the report | fit / evaluation |
 |---|---|---:|---|---:|---:|---|
-| Qwen3-0.6B | `results/qwen3_0p6b_real_profile` | 128 Wikitext-2 validation texts | 8 embedding-drop points from `0.0` to `0.1` | 6 | 8 curve points | exponential fit on `log(PPL/PPL_ref)`; report R2 and relative error on the sampled calibration points |
-| Qwen3.5-4B | `results/qwen35_4b_real_profile_v2` | 64 Wikitext-2 validation texts | 31 boundary layers x 5 positive layer-drop points | 3 | 155 layer rows | layer-wise calibration plus layer-onehot MLP; report layer R2 and MLP R2 on the calibration rows |
-| Gemma-4-E4B | `results/gemma4_e4b_real_profile` | 16 Wikitext-2 validation texts | 9 embedding-drop points from `0.0` to `0.1` | 3 | 9 curve points | linear baseline plus empirical piecewise curve over a scalar damage proxy; report both R2 values on the calibration grid |
+| Qwen3-0.6B | `results/qwen3_0p6b/qwen3_0p6b_real_profile` | 128 Wikitext-2 validation texts | 8 embedding-drop points from `0.0` to `0.1` | 6 | 8 curve points | exponential fit on `log(PPL/PPL_ref)`; report R2 and relative error on the sampled calibration points |
+| Qwen3.5-4B | `results/qwen35_4b/qwen35_4b_real_profile_v2` | 64 Wikitext-2 validation texts | 31 boundary layers x 5 positive layer-drop points | 3 | 155 layer rows | layer-wise calibration plus layer-onehot MLP; report layer R2 and MLP R2 on the calibration rows |
+| Gemma-4-E4B | `results/gemma4_e4b/gemma4_e4b_real_profile` | 16 Wikitext-2 validation texts | 9 embedding-drop points from `0.0` to `0.1` | 3 | 9 curve points | linear baseline plus empirical piecewise curve over a scalar damage proxy; report both R2 values on the calibration grid |
 
 For Qwen3-0.6B and Gemma-4-E4B, the benchmark uses embedding-drop corruption directly on the input embedding layer. For Qwen3.5-4B, the benchmark uses layer-wise hidden-state corruption and then trains the MLP surrogate on the resulting `layer_ppl_curve.json`. The reported `R2` values are calibration R2 values, not a separate held-out test-set score.
 
-Qwen3-0.6B uses the exact drop grid `[0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]` from `configs/real_llm.yaml`. The new no-retransmission raw-dense profile uses `[0.0, 0.0025, 0.005, 0.0075, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.065, 0.08, 0.1]` to better cover the larger raw PDP range. Gemma-4-E4B uses a denser empirical grid in `results/gemma4_e4b_real_profile/ppl_corruption_curve.json`; the piecewise fit reaches `R2 = 1.0` on those sampled points, but that is interpolation on the calibration curve, not an unseen generalization score.
+Qwen3-0.6B uses the exact drop grid `[0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]` from `configs/real_llm.yaml`. The new no-retransmission raw-dense profile uses `[0.0, 0.0025, 0.005, 0.0075, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05, 0.065, 0.08, 0.1]` to better cover the larger raw PDP range. Gemma-4-E4B uses a denser empirical grid in `results/gemma4_e4b/gemma4_e4b_real_profile/ppl_corruption_curve.json`; the piecewise fit reaches `R2 = 1.0` on those sampled points, but that is interpolation on the calibration curve, not an unseen generalization score.
 
 ## Visuals
 
 ### Qwen3-0.6B
 
-![0.6B training curves](results/visuals_layer_calibrated_hard_k256/training_curves.png)
+![0.6B training curves](results/qwen3_0p6b/visuals_layer_calibrated_hard_k256/training_curves.png)
 
-![0.6B benchmark reward comparison](results/visuals_layer_calibrated_hard_k256/benchmark_reward_bar.png)
+![0.6B benchmark reward comparison](results/qwen3_0p6b/visuals_layer_calibrated_hard_k256/benchmark_reward_bar.png)
 
-![0.6B RL margin histogram](results/visuals_layer_calibrated_hard_k256/margin_histogram.png)
+![0.6B RL margin histogram](results/qwen3_0p6b/visuals_layer_calibrated_hard_k256/margin_histogram.png)
 
 ### Qwen3.5-4B
 
-![Qwen3.5 training curves](results/visuals_qwen35_teacher_big/training_curves.png)
+![Qwen3.5 training curves](results/qwen35_4b/visuals_qwen35_teacher_big/training_curves.png)
 
-![Qwen3.5 benchmark reward comparison](results/visuals_qwen35_teacher_big/benchmark_reward_bar.png)
+![Qwen3.5 benchmark reward comparison](results/qwen35_4b/visuals_qwen35_teacher_big/benchmark_reward_bar.png)
 
-![Qwen3.5 RL margin histogram](results/visuals_qwen35_teacher_big/margin_histogram.png)
+![Qwen3.5 RL margin histogram](results/qwen35_4b/visuals_qwen35_teacher_big/margin_histogram.png)
 
 ### Surrogate
 
-![Qwen3-0.6B surrogate fit](results/surrogate_benchmark_qwen3_0p6b/surrogate_ppl_fit.png)
+![Qwen3-0.6B surrogate fit](results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b/surrogate_ppl_fit.png)
 
-![Gemma-4-E4B surrogate curve](results/surrogate_benchmark_gemma4_e4b/surrogate_ppl_fit.png)
+![Gemma-4-E4B surrogate curve](results/gemma4_e4b/surrogate_benchmark_gemma4_e4b/surrogate_ppl_fit.png)
 
 ## Reproduce
 
@@ -283,7 +283,7 @@ The config files contain the output directory, real-profile directory, teacher
 warm-start settings, candidate mode, projection mode, and CUDA device. Training
 is stochastic, so the exact checkpoint can vary across environments. The tracked
 Qwen3.5-4B checkpoint is a hard-state fine-tune: it samples the losing states
-from `results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_rows.csv` and
+from `results/qwen35_4b/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_rows.csv` and
 adds their strongest non-RL actions to replay, but benchmark-time inference is
 still pure learned-policy candidate generation.
 
@@ -346,12 +346,12 @@ Run a surrogate benchmark:
 
 ```powershell
 python -m src.benchmark_surrogate `
-  --real-dir results/qwen3_0p6b_real_profile `
-  --out results/surrogate_benchmark_qwen3_0p6b
+  --real-dir results/qwen3_0p6b/qwen3_0p6b_real_profile `
+  --out results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b
 
 python -m src.benchmark_surrogate `
-  --real-dir results/qwen3_0p6b_real_profile_raw_dense `
-  --out results/surrogate_benchmark_qwen3_0p6b_raw_dense `
+  --real-dir results/qwen3_0p6b/qwen3_0p6b_real_profile_raw_dense `
+  --out results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b_raw_dense `
   --fit piecewise `
   --write-surrogate
 ```
@@ -395,28 +395,32 @@ curve, not held-out generalization.
 |       |-- make_multi_model_surrogate_report.py
 |       `-- make_visuals.py
 |-- results/
-|   |-- qwen3_0p6b_real_profile/
-|   |-- qwen3_0p6b_real_profile_raw_dense/
-|   |-- qwen35_4b_real_profile_v2/
-|   |-- gemma4_e4b_real_profile/
-|   |-- autoreg_rl_layer_calibrated_hard_k256/
-|   |-- autoreg_rl_qwen35_4b_v2_teacher_big/
-|   |-- autoreg_rl_gemma4_e4b_teacher/
-|   |-- autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/
-|   |-- autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/
-|   |-- benchmark_layer_calibrated_hard_k256_5seed/
-|   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
-|   |-- benchmark_gemma4_e4b_teacher/
-|   |-- benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed/
-|   |-- benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed/
-|   |-- real_action_ppl_validation_layer_calibrated_retrained/
-|   |-- surrogate_benchmark_qwen3_0p6b/
-|   |-- surrogate_benchmark_qwen3_0p6b_raw_dense/
-|   |-- surrogate_benchmark_qwen35_4b_v2/
-|   |-- surrogate_benchmark_gemma4_e4b/
-|   |-- surrogate_benchmark_multi_model_report.md
-|   |-- visuals_layer_calibrated_hard_k256/
-|   `-- visuals_qwen35_teacher_big/
+|   |-- qwen3_0p6b/
+|   |   |-- qwen3_0p6b_real_profile/
+|   |   |-- qwen3_0p6b_real_profile_raw_dense/
+|   |   |-- autoreg_rl_layer_calibrated_hard_k256/
+|   |   |-- autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/
+|   |   |-- benchmark_layer_calibrated_hard_k256_5seed/
+|   |   |-- benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed/
+|   |   |-- real_action_ppl_validation_layer_calibrated_retrained/
+|   |   |-- surrogate_benchmark_qwen3_0p6b/
+|   |   |-- surrogate_benchmark_qwen3_0p6b_raw_dense/
+|   |   `-- visuals_layer_calibrated_hard_k256/
+|   |-- qwen35_4b/
+|   |   |-- qwen35_4b_real_profile_v2/
+|   |   |-- autoreg_rl_qwen35_4b_v2_teacher_big/
+|   |   |-- autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/
+|   |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
+|   |   |-- benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed/
+|   |   |-- surrogate_benchmark_qwen35_4b_v2/
+|   |   `-- visuals_qwen35_teacher_big/
+|   |-- gemma4_e4b/
+|   |   |-- gemma4_e4b_real_profile/
+|   |   |-- autoreg_rl_gemma4_e4b_teacher/
+|   |   |-- benchmark_gemma4_e4b_teacher/
+|   |   `-- surrogate_benchmark_gemma4_e4b/
+|   `-- cross_model/
+|       `-- surrogate_benchmark_multi_model_report.md
 |-- requirements.txt
 `-- README.md
 ```

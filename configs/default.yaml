@@ -17,7 +17,7 @@ profile:
   sequence_length: 128
   ppl_ref: 30.824672354565333    # clean PPL 基准。
   ppl_gamma: 10.899647591669423  # 旧全局 PPL surrogate 系数。
-  real_profile_dir: results/qwen3_0p6b_real_profile
+  real_profile_dir: results/qwen3_0p6b/qwen3_0p6b_real_profile
   surrogate_mode: linear         # 默认使用线性/指数损伤 surrogate。
   layer_compute_jitter: 0.12     # 层计算量扰动。
   activation_jitter: 0.08        # activation 大小扰动。
@@ -69,4 +69,4 @@ heuristics:
 
 # 默认输出目录。
 output:
-  result_dir: results/dros_generic_calibrated
+  result_dir: results/cross_model/dros_generic_calibrated

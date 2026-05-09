@@ -17,9 +17,9 @@ def fmt_opt(value: object, precision: int = 6) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train-dir", default="results/autoreg_rl_teacher")
-    parser.add_argument("--benchmark-dir", default="results/benchmark_autoreg_1024_3seed")
-    parser.add_argument("--out", default="results/autoreg_rl_strong_benchmark_report.md")
+    parser.add_argument("--train-dir", default="results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256")
+    parser.add_argument("--benchmark-dir", default="results/qwen3_0p6b/benchmark_layer_calibrated_hard_k256_5seed")
+    parser.add_argument("--out", default="results/qwen3_0p6b/autoreg_rl_strong_benchmark_report.md")
     args = parser.parse_args()
 
     train_dir = Path(args.train_dir)

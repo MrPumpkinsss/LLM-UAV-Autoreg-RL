@@ -20,7 +20,7 @@ profile:
   sequence_length: 96            # profile 和 simulator 默认使用的序列长度。
   ppl_ref: 10.74465168178793     # clean PPL，作为 PPL_hat 的基准。
   ppl_gamma: 7.6656569992961865  # 兼容旧全局指数 surrogate；Gemma 当前主要使用 curve surrogate。
-  real_profile_dir: results/gemma4_e4b_real_profile
+  real_profile_dir: results/gemma4_e4b/gemma4_e4b_real_profile
   surrogate_mode: curve          # 使用真实 profile 里的经验 piecewise curve 估计 PPL damage。
   layer_compute_jitter: 0.12     # 给每层计算量加入轻微扰动，避免所有层完全同质。
   activation_jitter: 0.08        # 给层间 activation 大小加入轻微扰动。
@@ -80,7 +80,7 @@ heuristics:
 # 当前 README 使用的 autoregressive RL 主训练配置。
 # 训练命令：python -m src.train_autoreg_rl --config configs/gemma4_base_calibrated.yaml
 ar_rl:
-  result_dir: results/autoreg_rl_gemma4_e4b_teacher
+  result_dir: results/gemma4_e4b/autoreg_rl_gemma4_e4b_teacher
   episodes: 800                  # RL 训练 episode 数；Gemma 当前训练量比 Qwen 系列小。
   batch_states: 8                # 每个 episode 采样多少个环境 state。
   candidates: 96                 # 训练时每个 state 从 policy 采样多少个完整分配候选。
@@ -129,9 +129,9 @@ ar_rl:
 # 当前 README 使用的 benchmark 配置。
 # benchmark 命令会读取这里的 policy、state 数、seed 列表和强 baseline 搜索预算。
 benchmark:
-  real_dir: results/gemma4_e4b_real_profile
-  policy: results/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt
-  out: results/benchmark_gemma4_e4b_teacher
+  real_dir: results/gemma4_e4b/gemma4_e4b_real_profile
+  policy: results/gemma4_e4b/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt
+  out: results/gemma4_e4b/benchmark_gemma4_e4b_teacher
   states: 64                     # 每个 seed 采样 64 个测试 state，总数 64*3=192。
   seeds: "91,92,93"              # 多 seed benchmark，README 表格来自这些结果。
   beam_width: 32                 # 非 RL beam_search/block_beam baseline 预算。
@@ -141,4 +141,4 @@ benchmark:
 
 # 旧 DROS 输出目录，当前 README 主流程不使用。
 output:
-  result_dir: results/gemma4_e4b_calibrated
+  result_dir: results/gemma4_e4b/dros_gemma4_e4b_calibrated

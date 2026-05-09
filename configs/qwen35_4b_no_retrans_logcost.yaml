@@ -17,7 +17,7 @@ profile:
   sequence_length: 64
   ppl_ref: 12.508157074727082
   ppl_gamma: 196.06855947881232
-  real_profile_dir: results/qwen35_4b_real_profile_v2
+  real_profile_dir: results/qwen35_4b/qwen35_4b_real_profile_v2
   surrogate_mode: mlp
   layer_compute_jitter: 0.12
   activation_jitter: 0.08
@@ -66,7 +66,7 @@ heuristics:
   evaluate_strong_baseline: true
 
 ar_rl:
-  result_dir: results/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2
+  result_dir: results/qwen35_4b/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2
   episodes: 600
   batch_states: 32
   candidates: 256
@@ -112,7 +112,7 @@ ar_rl:
   candidate_overgenerate: 1
   beam_temperature: 0.9
   hard_baseline: best_nonrl
-  hard_benchmark_rows: results/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/hard_states_used.csv
+  hard_benchmark_rows: results/qwen35_4b/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/hard_states_used.csv
   hard_margin_threshold: 0.0
   hard_max_states: 160
   hard_fraction: 0.75
@@ -122,9 +122,9 @@ ar_rl:
   device: cuda
 
 benchmark:
-  real_dir: results/qwen35_4b_real_profile_v2
-  policy: results/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/autoreg_policy_best.pt
-  out: results/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed
+  real_dir: results/qwen35_4b/qwen35_4b_real_profile_v2
+  policy: results/qwen35_4b/autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/autoreg_policy_best.pt
+  out: results/qwen35_4b/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed
   states: 64
   seeds: "91,92,93,94,95"
   beam_width: 32
@@ -135,4 +135,4 @@ benchmark:
   device: cuda
 
 output:
-  result_dir: results/qwen35_4b_no_retrans_logcost
+  result_dir: results/qwen35_4b/dros_qwen35_4b_no_retrans_logcost

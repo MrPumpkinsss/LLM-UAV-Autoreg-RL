@@ -48,13 +48,13 @@ def fmt(v: float | int | str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--qwen3-real-dir", default="results/qwen3_0p6b_real_profile")
-    parser.add_argument("--qwen35-real-dir", default="results/qwen35_4b_real_profile_v2")
-    parser.add_argument("--gemma-real-dir", default="results/gemma4_e4b_real_profile")
-    parser.add_argument("--qwen3-surrogate-dir", default="results/surrogate_benchmark_qwen3_0p6b")
-    parser.add_argument("--qwen35-surrogate-dir", default="results/surrogate_benchmark_qwen35_4b_v2")
-    parser.add_argument("--gemma-surrogate-dir", default="results/surrogate_benchmark_gemma4_e4b")
-    parser.add_argument("--out", default="results/surrogate_benchmark_multi_model_report.md")
+    parser.add_argument("--qwen3-real-dir", default="results/qwen3_0p6b/qwen3_0p6b_real_profile")
+    parser.add_argument("--qwen35-real-dir", default="results/qwen35_4b/qwen35_4b_real_profile_v2")
+    parser.add_argument("--gemma-real-dir", default="results/gemma4_e4b/gemma4_e4b_real_profile")
+    parser.add_argument("--qwen3-surrogate-dir", default="results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b")
+    parser.add_argument("--qwen35-surrogate-dir", default="results/qwen35_4b/surrogate_benchmark_qwen35_4b_v2")
+    parser.add_argument("--gemma-surrogate-dir", default="results/gemma4_e4b/surrogate_benchmark_gemma4_e4b")
+    parser.add_argument("--out", default="results/cross_model/surrogate_benchmark_multi_model_report.md")
     args = parser.parse_args()
 
     qwen3_real = Path(args.qwen3_real_dir)

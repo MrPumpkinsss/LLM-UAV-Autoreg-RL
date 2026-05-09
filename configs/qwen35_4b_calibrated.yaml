@@ -20,7 +20,7 @@ profile:
   sequence_length: 64            # profile 和 simulator 默认使用的序列长度。
   ppl_ref: 12.508157074727082    # clean PPL，作为 PPL_hat 的基准。
   ppl_gamma: 196.06855947881232  # 兼容旧全局指数 surrogate；真实 profile 存在时优先用 profile 内校准结果。
-  real_profile_dir: results/qwen35_4b_real_profile_v2
+  real_profile_dir: results/qwen35_4b/qwen35_4b_real_profile_v2
   surrogate_mode: linear         # 使用层级线性/指数损伤 surrogate。
   layer_compute_jitter: 0.12     # 给每层计算量加入轻微扰动，避免所有层完全同质。
   activation_jitter: 0.08        # 给层间 activation 大小加入轻微扰动。
@@ -80,7 +80,7 @@ heuristics:
 # 当前 README 使用的 autoregressive RL 主训练配置。
 # 训练命令：python -m src.train_autoreg_rl --config configs/qwen35_4b_calibrated.yaml
 ar_rl:
-  result_dir: results/autoreg_rl_qwen35_4b_v2_teacher_big
+  result_dir: results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big
   episodes: 1000                 # 当前 tracked checkpoint 的训练轮数。
   batch_states: 32               # 每个 episode 采样多少个环境 state。
   candidates: 256                # 训练时每个 state 从 policy 采样多少个完整分配候选。
@@ -125,7 +125,7 @@ ar_rl:
   teacher_top_k: 6               # 每个 teacher state 保留 top-k 动作作为监督。
   teacher_weight_tau: 0.012      # teacher 动作权重温度，越小越偏向最好动作。
   teacher_min_margin: 0.03       # teacher 动作相对 baseline 的最小筛选 margin。
-  hard_benchmark_rows: results/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_rows.csv
+  hard_benchmark_rows: results/qwen35_4b/benchmark_qwen35_4b_v2_teacher_big_5seed/benchmark_rows.csv
   hard_margin_threshold: 0.0     # 只采样 RL 输给 best_nonrl 的 hard states。
   hard_max_states: 32            # 最多保留 32 个最难 state。
   hard_fraction: 0.5             # 每个训练 batch 中 hard states 的比例。
@@ -138,9 +138,9 @@ ar_rl:
 # 当前 README 使用的 benchmark 配置。
 # benchmark 命令会读取这里的 policy、state 数、seed 列表和强 baseline 搜索预算。
 benchmark:
-  real_dir: results/qwen35_4b_real_profile_v2
-  policy: results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt
-  out: results/benchmark_qwen35_4b_v2_teacher_big_5seed
+  real_dir: results/qwen35_4b/qwen35_4b_real_profile_v2
+  policy: results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt
+  out: results/qwen35_4b/benchmark_qwen35_4b_v2_teacher_big_5seed
   states: 16                     # 每个 seed 采样 16 个测试 state，总数 16*5=80。
   seeds: "91,92,93,94,95"        # 多 seed benchmark，README 表格来自这些结果。
   beam_width: 32                 # 非 RL beam_search/block_beam baseline 预算。
@@ -150,4 +150,4 @@ benchmark:
 
 # 旧 DROS 输出目录，当前 README 主流程不使用。
 output:
-  result_dir: results/qwen35_4b_calibrated
+  result_dir: results/qwen35_4b/dros_qwen35_4b_calibrated

@@ -140,7 +140,7 @@ def main() -> None:
     parser.add_argument("--config", default="configs/qwen3_calibrated.yaml")
     parser.add_argument("--llm-config", default="configs/real_llm.yaml")
     parser.add_argument("--real-dir", default=None)
-    parser.add_argument("--policy", default="results/autoreg_rl_real_k16_blocks/autoreg_policy_best.pt")
+    parser.add_argument("--policy", default="results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt")
     parser.add_argument("--states", type=int, default=12)
     parser.add_argument("--seed", type=int, default=777)
     parser.add_argument("--repeats", type=int, default=3)
@@ -155,7 +155,7 @@ def main() -> None:
     parser.add_argument("--candidate-mode", default="beam")
     parser.add_argument("--beam-temperature", type=float, default=1.0)
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--out", default="results/real_action_ppl_validation")
+    parser.add_argument("--out", default="results/qwen3_0p6b/real_action_ppl_validation")
     args = parser.parse_args()
 
     cfg = load_config(args.config)

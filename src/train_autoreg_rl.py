@@ -631,7 +631,7 @@ def main() -> None:
     seed = int(cfg["seed"])
     set_seed(seed)
     rng = np.random.default_rng(seed)
-    out_dir = ensure_dir(args.out or ar_cfg.get("result_dir", "results/autoreg_rl"))
+    out_dir = ensure_dir(args.out or ar_cfg.get("result_dir", "results/qwen3_0p6b/autoreg_rl"))
     (out_dir / "config_used.json").write_text(json.dumps(cfg, indent=2), encoding="utf-8")
 
     if real_dir is not None:

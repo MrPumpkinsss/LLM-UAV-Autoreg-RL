@@ -80,8 +80,8 @@ def save_curve(rows: list[dict], out_dir: Path, label: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--real-dir", default="results/real_profile")
-    parser.add_argument("--out", default="results/surrogate_benchmark")
+    parser.add_argument("--real-dir", default="results/qwen3_0p6b/qwen3_0p6b_real_profile")
+    parser.add_argument("--out", default="results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b")
     parser.add_argument(
         "--fit",
         default="auto",

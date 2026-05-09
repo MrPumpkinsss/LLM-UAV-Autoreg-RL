@@ -20,7 +20,7 @@ profile:
   sequence_length: 128            # profile 和 simulator 默认使用的序列长度。
   ppl_ref: 30.824672354565333     # clean PPL，作为 PPL_hat 的基准。
   ppl_gamma: 10.899647591669423   # 兼容旧的全局指数 surrogate；有真实 profile 时优先使用 profile 内校准结果。
-  real_profile_dir: results/qwen3_0p6b_real_profile
+  real_profile_dir: results/qwen3_0p6b/qwen3_0p6b_real_profile
   surrogate_mode: linear          # 使用线性/指数形式的层级损伤 surrogate。
   layer_compute_jitter: 0.12      # 给每层计算量加入轻微扰动，避免所有层完全同质。
   activation_jitter: 0.08         # 给层间 activation 大小加入轻微扰动。
@@ -120,7 +120,7 @@ pure_training:
   eval_interval: 100
   infeasible_weight: 0.15
 block_rl:
-  result_dir: results/block_rl_qwen3_0p6b
+  result_dir: results/qwen3_0p6b/block_rl_qwen3_0p6b
   episodes: 1800
   batch_states: 12
   candidates: 96
@@ -158,7 +158,7 @@ block_rl:
 # 当前 README 使用的 autoregressive RL 主训练配置。
 # 训练命令：python -m src.train_autoreg_rl --config configs/qwen3_calibrated.yaml
 ar_rl:
-  result_dir: results/autoreg_rl_layer_calibrated_hard_k256
+  result_dir: results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256
   episodes: 2000                  # RL 训练 episode 数。
   batch_states: 32                # 每个 episode 采样多少个环境 state。
   candidates: 256                 # 训练时每个 state 从 policy 采样多少个完整分配候选。
@@ -209,9 +209,9 @@ ar_rl:
 # 当前 README 使用的 benchmark 配置。
 # benchmark 命令会读取这里的 policy、state 数、seed 列表和强 baseline 搜索预算。
 benchmark:
-  real_dir: results/qwen3_0p6b_real_profile
-  policy: results/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt
-  out: results/benchmark_layer_calibrated_hard_k256_5seed
+  real_dir: results/qwen3_0p6b/qwen3_0p6b_real_profile
+  policy: results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt
+  out: results/qwen3_0p6b/benchmark_layer_calibrated_hard_k256_5seed
   states: 64                      # 每个 seed 采样 64 个测试 state，总数 64*5=320。
   seeds: "91,92,93,94,95"         # 多 seed benchmark，README 表格来自这些结果。
   beam_width: 32                  # 非 RL beam_search/block_beam baseline 预算。
@@ -221,4 +221,4 @@ benchmark:
 
 # 旧 DROS 输出目录，当前 README 主流程不使用。
 output:
-  result_dir: results/dros_qwen3_0p6b_calibrated
+  result_dir: results/qwen3_0p6b/dros_qwen3_0p6b_calibrated

@@ -12,7 +12,7 @@ batch_size: 1                    # 真实 LLM PPL batch size；显存不够时�
 drop_rates: [0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]  # embedding corruption 网格。
 corruption_trials: 6             # 每个 drop rate 重复次数，用于降低随机噪声。
 seed: 123                        # profile 随机种子。
-output_dir: results/qwen3_0p6b_real_profile
+output_dir: results/qwen3_0p6b/qwen3_0p6b_real_profile
 
 # 优先从 Wikitext-2 validation 抽文本；如果下载失败则回退到下面 texts 列表。
 dataset:

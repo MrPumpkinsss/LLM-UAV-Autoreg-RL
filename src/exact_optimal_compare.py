@@ -78,8 +78,8 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/qwen3_calibrated.yaml")
-    parser.add_argument("--policy", default="results/autoreg_rl_teacher/autoreg_policy_best.pt")
-    parser.add_argument("--out", default="results/exact_optimal_L7_N5")
+    parser.add_argument("--policy", default="results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt")
+    parser.add_argument("--out", default="results/qwen3_0p6b/exact_optimal_L7_N5")
     parser.add_argument("--num-layers", type=int, default=7)
     parser.add_argument("--num-uavs", type=int, default=5)
     parser.add_argument("--states", type=int, default=64)

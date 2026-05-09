@@ -38,7 +38,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/qwen3_calibrated.yaml")
-    parser.add_argument("--policy", default="results/autoreg_rl_teacher/autoreg_policy_best.pt")
+    parser.add_argument("--policy", default=None)
     parser.add_argument("--states", type=int, default=64)
     parser.add_argument("--seeds", default="91,92,93")
     parser.add_argument("--beam-width", type=int, default=32)
@@ -53,7 +53,7 @@ def main() -> None:
     parser.add_argument("--candidate-beam-count", type=int, default=None)
     parser.add_argument("--candidate-min-hamming", type=int, default=None)
     parser.add_argument("--retransmissions", default=None)
-    parser.add_argument("--out", default="results/benchmark_autoreg")
+    parser.add_argument("--out", default=None)
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
 
@@ -80,7 +80,11 @@ def main() -> None:
         cfg.setdefault("ar_rl", {})["candidate_beam_count"] = args.candidate_beam_count
     if args.candidate_min_hamming is not None:
         cfg.setdefault("ar_rl", {})["candidate_min_hamming"] = args.candidate_min_hamming
-    out_dir = ensure_dir(args.out)
+    bench_cfg = cfg.get("benchmark", {})
+    ar_cfg = cfg.get("ar_rl", {})
+    default_policy = Path(ar_cfg.get("result_dir", "results/qwen3_0p6b/autoreg_rl")) / "autoreg_policy_best.pt"
+    policy_path_arg = Path(args.policy or bench_cfg.get("policy") or str(default_policy))
+    out_dir = ensure_dir(args.out or bench_cfg.get("out", "results/qwen3_0p6b/benchmark_autoreg"))
     rows: list[dict] = []
 
     for seed_text in args.seeds.split(","):
@@ -90,7 +94,7 @@ def main() -> None:
         profile = build_arch_profile(cfg["profile"], rng)
         env = LLMUAVEnv(cfg, profile, rng)
         agent = AutoregRLAgent(env, cfg, args.device, rng)
-        state_dict = torch.load(Path(args.policy), map_location=agent.device)
+        state_dict = torch.load(policy_path_arg, map_location=agent.device)
         agent.policy.load_state_dict(state_dict)
 
         for sid in range(args.states):

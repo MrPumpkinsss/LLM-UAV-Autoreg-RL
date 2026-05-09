@@ -45,7 +45,7 @@ def resolve_real_dir(cfg: dict, cli_real_dir: str | None) -> Path:
     configured = cfg.get("profile", {}).get("real_profile_dir")
     if configured:
         return Path(str(configured))
-    return Path("results/real_profile")
+    return Path("results/qwen3_0p6b/qwen3_0p6b_real_profile")
 
 
 def main() -> None:
@@ -106,7 +106,7 @@ def main() -> None:
             ar_cfg[key] = bench_cfg[key]
 
     real_dir_arg = args.real_dir or bench_cfg.get("real_dir")
-    policy_path = Path(args.policy or bench_cfg.get("policy") or Path(ar_cfg.get("result_dir", "results/autoreg_rl")) / "autoreg_policy_best.pt")
+    policy_path = Path(args.policy or bench_cfg.get("policy") or Path(ar_cfg.get("result_dir", "results/qwen3_0p6b/autoreg_rl")) / "autoreg_policy_best.pt")
     states = int(args.states if args.states is not None else bench_cfg.get("states", 64))
     seeds_text = str(args.seeds if args.seeds is not None else bench_cfg.get("seeds", "91,92,93"))
     beam_width = int(args.beam_width if args.beam_width is not None else bench_cfg.get("beam_width", 32))
@@ -117,7 +117,7 @@ def main() -> None:
         else bench_cfg.get("autoreg_candidates", ar_cfg.get("eval_candidates", 64))
     )
     device = str(args.device or bench_cfg.get("device", ar_cfg.get("device", "cuda")))
-    out_dir = ensure_dir(args.out or bench_cfg.get("out", "results/benchmark_real_profile_k64"))
+    out_dir = ensure_dir(args.out or bench_cfg.get("out", "results/qwen3_0p6b/benchmark_real_profile_k64"))
     rows: list[dict] = []
 
     for seed_text in seeds_text.split(","):

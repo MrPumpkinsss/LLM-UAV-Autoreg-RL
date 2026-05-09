@@ -17,7 +17,7 @@ profile:
   sequence_length: 128
   ppl_ref: 30.824672354565333
   ppl_gamma: 10.899647591669423
-  real_profile_dir: results/qwen3_0p6b_real_profile_raw_dense
+  real_profile_dir: results/qwen3_0p6b/qwen3_0p6b_real_profile_raw_dense
   surrogate_mode: curve
   layer_compute_jitter: 0.12
   activation_jitter: 0.08
@@ -66,7 +66,7 @@ heuristics:
   evaluate_strong_baseline: true
 
 ar_rl:
-  result_dir: results/autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard
+  result_dir: results/qwen3_0p6b/autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard
   episodes: 800
   batch_states: 32
   candidates: 256
@@ -112,7 +112,7 @@ ar_rl:
   candidate_overgenerate: 2
   beam_temperature: 0.9
   hard_baseline: best_nonrl
-  hard_benchmark_rows: results/autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/hard_states_used.csv
+  hard_benchmark_rows: results/qwen3_0p6b/autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/hard_states_used.csv
   hard_margin_threshold: 0.0
   hard_max_states: 96
   hard_fraction: 0.5
@@ -122,9 +122,9 @@ ar_rl:
   device: cuda
 
 benchmark:
-  real_dir: results/qwen3_0p6b_real_profile_raw_dense
-  policy: results/autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/autoreg_policy_best.pt
-  out: results/benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed
+  real_dir: results/qwen3_0p6b/qwen3_0p6b_real_profile_raw_dense
+  policy: results/qwen3_0p6b/autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/autoreg_policy_best.pt
+  out: results/qwen3_0p6b/benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed
   states: 64
   seeds: "91,92,93,94,95"
   beam_width: 32
