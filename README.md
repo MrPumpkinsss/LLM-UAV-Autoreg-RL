@@ -111,16 +111,16 @@ Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_b
 
 ### No-Retransmission Ablation (`r = 0`)
 
-The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual activation loss is raw PDP instead of `PDP^2`. The Qwen3-0.6B rerun uses a denser raw-drop real-LLM profile and `reward.ppl_cost_mode = log`, so the reward uses `log(1 + PPL_norm)` instead of raw `PPL_norm`. This avoids the pathological heavy-tail explosion seen with the old linear-cost no-retrans run. The Qwen3.5-4B row below is the earlier linear-cost no-retrans run kept as a legacy comparison. These runs were executed in the `LLM-UAV` conda environment with CUDA.
+The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual activation loss is raw PDP instead of `PDP^2`. These reruns use `reward.ppl_cost_mode = log`, so the reward uses `log(1 + PPL_norm)` instead of raw `PPL_norm`. This avoids the pathological heavy-tail explosion seen with the old linear-cost no-retrans run. These runs were executed in the `LLM-UAV` conda environment with CUDA.
 
 | model | artifact | states | RL reward | best non-RL | best non-RL reward | RL latency | RL PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
 | Qwen3-0.6B | `results/benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed` | 320 | -0.257262 | `hybrid_heuristic` | -0.259101 | 2.3714 | 32.4630 | 0.11442 | +0.001839 | 0.8938 |
-| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_5seed` | 80 | -1.679301 | `block_lns_strong` | -0.576225 | 4.7772 | 59.9611 | 0.11543 | -1.103076 | 0.2125 |
+| Qwen3.5-4B | `results/benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_5seed` | 320 | -0.244537 | `hybrid_heuristic` | -0.245694 | 4.5543 | 18.9674 | 0.84879 | +0.001157 | 0.7313 |
 
-For Qwen3-0.6B, the log-cost and dense raw-drop calibration remove the pathological PPL tail, and hard-state fine-tuning raises the win/tie rate to `0.8938`. For Qwen3.5-4B, retraining recovers feasible policies, but the strongest non-RL block heuristic still has better mean reward in this legacy ablation.
+For Qwen3-0.6B, the log-cost and dense raw-drop calibration remove the pathological PPL tail, and hard-state fine-tuning raises the win/tie rate to `0.8938`. For Qwen3.5-4B, the final no-retransmission result uses the layer-wise MLP surrogate, hard-state fine-tuning, and a larger pure-policy inference pool (`k=1024`). The RL candidate pool still contains only learned-policy actions; strong heuristics are benchmark baselines and hard-state training teachers only.
 
-The method tables below compare `autoreg_rl_pure` with the strongest heuristic baselines under both retransmission settings. The `r = 1` tables are the default retransmission-aware benchmark. The `r = 0` Qwen3-0.6B table uses the new log-cost/raw-dense hard-state rerun; the Qwen3.5-4B table is kept as a legacy reference.
+The method tables below compare `autoreg_rl_pure` with the strongest heuristic baselines under both retransmission settings. The `r = 1` tables are the default retransmission-aware benchmark. The `r = 0` tables use log-cost hard-state reruns.
 
 ### r=1 Qwen3-0.6B Methods
 
@@ -164,17 +164,17 @@ The method tables below compare `autoreg_rl_pure` with the strongest heuristic b
 | simulated_annealing | -0.347934 | 1.0000 | 2.8706 | 36.2588 | 0.00723 |
 | local_search | -0.348585 | 1.0000 | 2.8752 | 36.2784 | 0.01641 |
 
-### r=0 Qwen3.5-4B Methods (legacy linear-cost)
+### r=0 Qwen3.5-4B Methods (log-cost, hard states, k=1024)
 
 | method | reward | feasible | latency | PPL_hat | runtime_s |
 |---|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | -1.679301 | 1.0000 | 4.7772 | 59.9611 | 0.11543 |
-| hybrid_heuristic | -0.576225 | 1.0000 | 4.6093 | 25.9527 | 0.01735 |
-| block_lns_strong | -0.576225 | 1.0000 | 4.6093 | 25.9527 | 0.07955 |
-| block_beam_strong | -0.583162 | 1.0000 | 4.6396 | 26.1395 | 0.86677 |
-| beam_search | -21.401349 | 1.0000 | 5.0216 | 670.5622 | 0.08776 |
-| simulated_annealing | -14.208862 | 0.8875 | 24.9779 | 53366067439930100982743040.0000 | 0.00919 |
-| local_search | -14.211566 | 0.8875 | 24.9645 | 53366067439930100982743040.0000 | 0.02094 |
+| autoreg_rl_pure | -0.244537 | 1.0000 | 4.5543 | 18.9674 | 0.84879 |
+| hybrid_heuristic | -0.245694 | 1.0000 | 4.5491 | 19.4734 | 0.02542 |
+| block_lns_strong | -0.247842 | 1.0000 | 4.5387 | 19.9200 | 0.10289 |
+| block_beam_strong | -0.252809 | 1.0000 | 4.5648 | 20.3846 | 3.65250 |
+| beam_search | -0.422710 | 1.0000 | 4.9062 | 731.9199 | 0.46478 |
+| simulated_annealing | -0.736104 | 1.0000 | 4.9292 | 666.5776 | 0.01175 |
+| local_search | -0.739525 | 1.0000 | 4.8973 | 666.9373 | 0.03054 |
 
 ## Real LLM Validation
 
@@ -319,16 +319,10 @@ conda run -n LLM-UAV python -m src.train_autoreg_rl `
   --config configs/qwen3_no_retrans_logcost.yaml
 
 conda run -n LLM-UAV python -m src.train_autoreg_rl `
-  --config configs/qwen35_4b_calibrated.yaml `
-  --retransmissions 0 `
-  --out results/autoreg_rl_qwen35_4b_no_retrans `
-  --device cuda `
-  --hard-benchmark-rows none `
-  --hard-fraction 0 `
-  --hard-teacher-repeats 0
+  --config configs/qwen35_4b_no_retrans_logcost.yaml
 ```
 
-The Qwen3-0.6B no-retransmission config is a hard-state fine-tune. It uses the tracked `results/autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/hard_states_used.csv` state spec and the released hard checkpoint for final benchmarking. To regenerate the exact hard-state spec from scratch, first run a base log-cost benchmark and point `ar_rl.hard_benchmark_rows` at that base `benchmark_rows.csv`.
+The no-retransmission configs are hard-state fine-tunes. They use tracked compact hard-state specs in `hard_states_used.csv` and the released hard checkpoints for final benchmarking. The training commands above are runnable stochastic retraining commands; the table values are reproduced by benchmarking the tracked checkpoints. To regenerate the exact hard-state specs from scratch, first run a base log-cost benchmark, then point `ar_rl.hard_benchmark_rows` at that base `benchmark_rows.csv`. The Qwen3.5-4B final benchmark uses `k=1024` learned-policy candidates; this is slower than `k=256` but was needed to reliably beat the strongest heuristic on the 320-state benchmark.
 
 Benchmark the no-retransmission checkpoints:
 
@@ -337,14 +331,10 @@ conda run -n LLM-UAV python -m src.benchmark_real_profile `
   --config configs/qwen3_no_retrans_logcost.yaml
 
 conda run -n LLM-UAV python -m src.benchmark_real_profile `
-  --config configs/qwen35_4b_calibrated.yaml `
-  --retransmissions 0 `
-  --policy results/autoreg_rl_qwen35_4b_no_retrans/autoreg_policy_best.pt `
-  --out results/benchmark_qwen35_4b_no_retrans_5seed `
-  --device cuda
+  --config configs/qwen35_4b_no_retrans_logcost.yaml
 ```
 
-Expected no-retransmission summaries: Qwen3-0.6B log-cost/raw-dense hard-state `autoreg_rl_pure` reward `-0.257262`, `PPL_hat` `32.4630`, win/tie `0.8938`; Qwen3.5-4B legacy linear-cost reward `-1.679301`, `PPL_hat` `59.9611`, win/tie `0.2125`.
+Expected no-retransmission summaries: Qwen3-0.6B log-cost/raw-dense hard-state `autoreg_rl_pure` reward `-0.257262`, `PPL_hat` `32.4630`, win/tie `0.8938`; Qwen3.5-4B log-cost hard-state `autoreg_rl_pure` reward `-0.244537`, `PPL_hat` `18.9674`, win/tie `0.7313`.
 
 Run a surrogate benchmark:
 
@@ -375,6 +365,7 @@ curve, not held-out generalization.
 |   |-- qwen3_calibrated.yaml
 |   |-- qwen3_no_retrans_logcost.yaml
 |   |-- qwen35_4b_calibrated.yaml
+|   |-- qwen35_4b_no_retrans_logcost.yaml
 |   |-- gemma4_base_calibrated.yaml
 |   |-- real_llm.yaml
 |   |-- real_llm_qwen3_raw_dense.yaml
@@ -406,12 +397,12 @@ curve, not held-out generalization.
 |   |-- autoreg_rl_qwen35_4b_v2_teacher_big/
 |   |-- autoreg_rl_gemma4_e4b_teacher/
 |   |-- autoreg_rl_qwen3_0p6b_no_retrans_logcost_hard/
-|   |-- autoreg_rl_qwen35_4b_no_retrans/
+|   |-- autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/
 |   |-- benchmark_layer_calibrated_hard_k256_5seed/
 |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
 |   |-- benchmark_gemma4_e4b_teacher/
 |   |-- benchmark_qwen3_0p6b_no_retrans_logcost_hard_5seed/
-|   |-- benchmark_qwen35_4b_no_retrans_5seed/
+|   |-- benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_5seed/
 |   |-- real_action_ppl_validation_layer_calibrated_retrained/
 |   |-- surrogate_benchmark_qwen3_0p6b/
 |   |-- surrogate_benchmark_qwen3_0p6b_raw_dense/

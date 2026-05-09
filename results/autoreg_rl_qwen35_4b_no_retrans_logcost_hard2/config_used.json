@@ -13,7 +13,7 @@
     "ppl_ref": 12.508157074727082,
     "ppl_gamma": 196.06855947881232,
     "real_profile_dir": "results/qwen35_4b_real_profile_v2",
-    "surrogate_mode": "linear",
+    "surrogate_mode": "mlp",
     "layer_compute_jitter": 0.12,
     "activation_jitter": 0.08
   },
@@ -47,6 +47,8 @@
   "reward": {
     "alpha": 0.4,
     "beta": 0.6,
+    "ppl_cost_mode": "log",
+    "ppl_cost_cap": null,
     "infeasible_reward": -100.0,
     "latency_ref_s": 20.0,
     "repair_energy_iters": 4
@@ -59,8 +61,8 @@
     "evaluate_strong_baseline": true
   },
   "ar_rl": {
-    "result_dir": "results/autoreg_rl_qwen35_4b_v2_teacher_big",
-    "episodes": 1000,
+    "result_dir": "results/autoreg_rl_qwen35_4b_no_retrans_logcost",
+    "episodes": 600,
     "batch_states": 32,
     "candidates": 256,
     "eval_candidates": 256,
@@ -101,28 +103,29 @@
     "teacher_beam_width": 32,
     "teacher_anneal_steps": 128,
     "teacher_eval_interval": 200,
+    "teacher_top_k": 6,
+    "teacher_weight_tau": 0.012,
+    "teacher_min_margin": 0.03,
     "projection_mode": "blocks",
     "max_blocks": 5,
     "candidate_mode": "beam",
     "candidate_overgenerate": 2,
     "beam_temperature": 0.9,
-    "teacher_top_k": 6,
-    "teacher_weight_tau": 0.012,
-    "teacher_min_margin": 0.03,
-    "hard_margin_threshold": 0.0,
-    "hard_max_states": 32,
-    "hard_fraction": 0.0,
-    "hard_weight_scale": 120.0,
-    "hard_max_weight": 12.0,
     "hard_baseline": "best_nonrl",
-    "hard_teacher_repeats": 0,
+    "hard_benchmark_rows": "results/benchmark_qwen35_4b_no_retrans_logcost_hard_5seed/benchmark_rows.csv",
+    "hard_margin_threshold": 0.0,
+    "hard_max_states": 160,
+    "hard_fraction": 0.75,
+    "hard_weight_scale": 200.0,
+    "hard_max_weight": 24.0,
+    "hard_teacher_repeats": 16,
     "device": "cuda"
   },
   "benchmark": {
     "real_dir": "results/qwen35_4b_real_profile_v2",
-    "policy": "results/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt",
-    "out": "results/benchmark_qwen35_4b_v2_teacher_big_5seed",
-    "states": 16,
+    "policy": "results/autoreg_rl_qwen35_4b_no_retrans_logcost/autoreg_policy_best.pt",
+    "out": "results/benchmark_qwen35_4b_no_retrans_logcost_5seed",
+    "states": 64,
     "seeds": "91,92,93,94,95",
     "beam_width": 32,
     "anneal_steps": 128,
@@ -130,6 +133,6 @@
     "device": "cuda"
   },
   "output": {
-    "result_dir": "results/qwen35_4b_calibrated"
+    "result_dir": "results/qwen35_4b_no_retrans_logcost"
   }
 }
