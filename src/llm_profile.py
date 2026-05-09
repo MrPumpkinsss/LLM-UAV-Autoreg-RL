@@ -168,6 +168,46 @@ def ppl_hat_from_residuals(profile: LLMProfile, residuals: np.ndarray, linear_da
     return float(profile.ppl_ref * np.exp(np.clip(log_ratio, -60.0, 60.0)))
 
 
+def ppl_hat_from_residuals_batch(
+    profile: LLMProfile,
+    residuals: np.ndarray,
+    linear_damage: np.ndarray | None = None,
+) -> np.ndarray:
+    residuals = np.asarray(residuals, dtype=np.float64)
+    if residuals.ndim != 2:
+        raise ValueError(f"residuals must be 2D, got shape {residuals.shape}")
+    surrogate = profile.ppl_surrogate
+    if surrogate and surrogate.get("type") == "layer_onehot_mlp_v1":
+        input_scale = float(surrogate.get("input_scale", 1.0))
+        max_residual = float(surrogate.get("max_calibrated_residual", 1.0 / max(input_scale, 1e-12)))
+        c, n = residuals.shape
+        eye = np.eye(n, dtype=np.float64)
+        onehot = np.broadcast_to(eye, (c, n, n)).reshape(c * n, n)
+        residual_eval = np.minimum(residuals, max_residual)
+        residual_feat = (residual_eval * input_scale).reshape(c * n, 1)
+        h = np.concatenate([onehot, residual_feat], axis=1)
+        hidden_layers = int(np.asarray(surrogate["hidden_layers"]).item())
+        for idx in range(hidden_layers):
+            w = np.asarray(surrogate[f"w{idx}"], dtype=np.float64)
+            b = np.asarray(surrogate[f"b{idx}"], dtype=np.float64)
+            preact = h @ w.T + b
+            h = preact / (1.0 + np.exp(-preact))
+        w_out = np.asarray(surrogate["w_out"], dtype=np.float64)
+        b_out = np.asarray(surrogate["b_out"], dtype=np.float64)
+        raw = (h @ w_out.T + b_out).reshape(c, n)
+        gamma = np.logaddexp(raw, 0.0)
+        log_ratio = np.sum(residuals * gamma, axis=1)
+    elif surrogate and surrogate.get("type") == "scalar_curve_v1":
+        if linear_damage is None:
+            linear_damage = np.sum(profile.importance * residuals, axis=1)
+        log_ratio = _curve_predict_log_ratio_np(surrogate, np.asarray(linear_damage, dtype=np.float64))
+    else:
+        if linear_damage is None:
+            linear_damage = np.sum(profile.importance * residuals, axis=1)
+        log_ratio = float(profile.ppl_gamma) * np.asarray(linear_damage, dtype=np.float64)
+    return float(profile.ppl_ref) * np.exp(np.clip(log_ratio, -60.0, 60.0))
+
+
 def ppl_hat_from_residuals_torch(profile: LLMProfile, residuals: torch.Tensor) -> torch.Tensor:
     surrogate = profile.ppl_surrogate
     if surrogate and surrogate.get("type") == "layer_onehot_mlp_v1":

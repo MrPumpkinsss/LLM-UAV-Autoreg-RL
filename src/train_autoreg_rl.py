@@ -49,6 +49,21 @@ def _torch_attempts_and_residual(env: LLMUAVEnv, p: torch.Tensor) -> tuple[torch
     return attempts, residual
 
 
+def _torch_ppl_cost_from_hat(ppl_hat: torch.Tensor, ppl_ref: float, reward_cfg: dict) -> torch.Tensor:
+    linear = torch.clamp((ppl_hat - float(ppl_ref)) / max(float(ppl_ref), 1e-9), min=0.0)
+    mode = str(reward_cfg.get("ppl_cost_mode", "linear")).lower()
+    if mode == "log":
+        value = torch.log1p(linear)
+    elif mode in {"cap", "capped", "linear"}:
+        value = linear
+    else:
+        raise ValueError(f"unsupported reward.ppl_cost_mode: {mode}")
+    cap = reward_cfg.get("ppl_cost_cap")
+    if cap is not None:
+        value = torch.clamp(value, max=float(cap))
+    return value
+
+
 def evaluate_training_batch_torch(
     agent: AutoregRLAgent,
     states: list,
@@ -136,7 +151,7 @@ def evaluate_training_batch_torch(
 
     reward_cfg = env.cfg["reward"]
     ppl_hat = ppl_hat_from_residuals_torch(env.profile, residual_by_layer)
-    ppl_norm = (ppl_hat - float(env.profile.ppl_ref)) / max(float(env.profile.ppl_ref), 1e-9)
+    ppl_norm = _torch_ppl_cost_from_hat(ppl_hat, float(env.profile.ppl_ref), reward_cfg)
     latency_norm = latency / float(reward_cfg["latency_ref_s"])
     cost = float(reward_cfg["alpha"]) * ppl_norm + float(reward_cfg["beta"]) * latency_norm
     feasible = memory_ok & energy_ok
@@ -262,6 +277,28 @@ def load_hard_state_specs(
 ) -> list[HardStateSpec]:
     if not rows_path.exists():
         raise FileNotFoundError(rows_path)
+    with rows_path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames = set(reader.fieldnames or [])
+        if {"seed", "state_id", "margin", "weight"}.issubset(fieldnames) and "method" not in fieldnames:
+            specs = []
+            for row in reader:
+                margin = float(row["margin"])
+                if margin < margin_threshold:
+                    weight = float(np.clip(float(row["weight"]), min_weight, max_weight))
+                    specs.append(
+                        HardStateSpec(
+                            seed=int(row["seed"]),
+                            state_id=int(row["state_id"]),
+                            margin=margin,
+                            weight=weight,
+                        )
+                    )
+            specs.sort(key=lambda item: item.margin)
+            if max_states is not None and max_states > 0:
+                specs = specs[: int(max_states)]
+            return specs
+
     by_state: dict[tuple[int, int], dict[str, float]] = {}
     with rows_path.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -479,6 +516,9 @@ def main() -> None:
     parser.add_argument("--teacher-updates", type=int, default=None)
     parser.add_argument("--num-uavs", type=int, default=None)
     parser.add_argument("--num-layers", type=int, default=None)
+    parser.add_argument("--retransmissions", default=None)
+    parser.add_argument("--ppl-cost-mode", default=None, choices=["linear", "log", "cap", "capped"])
+    parser.add_argument("--ppl-cost-cap", type=float, default=None)
     parser.add_argument("--real-dir", default=None)
     parser.add_argument("--init-policy", default=None)
     parser.add_argument("--train-projection-passes", type=int, default=None)
@@ -511,6 +551,16 @@ def main() -> None:
         cfg["uav"]["num_uavs"] = args.num_uavs
     if args.num_layers is not None:
         cfg["profile"]["num_layers"] = args.num_layers
+    if args.retransmissions is not None:
+        retransmissions = str(args.retransmissions)
+        if retransmissions.lower() in {"inf", "infinity"}:
+            cfg.setdefault("wireless", {})["retransmissions"] = retransmissions
+        else:
+            cfg.setdefault("wireless", {})["retransmissions"] = int(retransmissions)
+    if args.ppl_cost_mode is not None:
+        cfg.setdefault("reward", {})["ppl_cost_mode"] = args.ppl_cost_mode
+    if args.ppl_cost_cap is not None:
+        cfg.setdefault("reward", {})["ppl_cost_cap"] = float(args.ppl_cost_cap)
     real_dir = Path(args.real_dir) if args.real_dir else (
         Path(str(cfg.get("profile", {}).get("real_profile_dir"))) if cfg.get("profile", {}).get("real_profile_dir") else None
     )
@@ -556,7 +606,11 @@ def main() -> None:
     if args.candidate_min_hamming is not None:
         ar_cfg["candidate_min_hamming"] = args.candidate_min_hamming
     if args.hard_benchmark_rows is not None:
-        ar_cfg["hard_benchmark_rows"] = args.hard_benchmark_rows
+        hard_rows_arg = str(args.hard_benchmark_rows)
+        if hard_rows_arg.lower() in {"", "none", "null", "false"}:
+            ar_cfg.pop("hard_benchmark_rows", None)
+        else:
+            ar_cfg["hard_benchmark_rows"] = args.hard_benchmark_rows
     if args.hard_baseline is not None:
         ar_cfg["hard_baseline"] = args.hard_baseline
     if args.hard_margin_threshold is not None:

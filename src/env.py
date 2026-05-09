@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .channel import ChannelState, sample_channel
-from .llm_profile import LLMProfile, ppl_hat_from_residuals
+from .llm_profile import LLMProfile, ppl_hat_from_residuals, ppl_hat_from_residuals_batch
 
 
 @dataclass(frozen=True)
@@ -37,6 +37,21 @@ class EvalResult:
     memory_ok: bool
     energy_ok: bool
     bandwidth_ok: bool
+
+
+def ppl_cost_from_hat(ppl_hat: float, ppl_ref: float, reward_cfg: dict) -> float:
+    linear = max(0.0, (float(ppl_hat) - float(ppl_ref)) / max(float(ppl_ref), 1e-9))
+    mode = str(reward_cfg.get("ppl_cost_mode", "linear")).lower()
+    if mode == "log":
+        value = float(np.log1p(linear))
+    elif mode in {"cap", "capped", "linear"}:
+        value = linear
+    else:
+        raise ValueError(f"unsupported reward.ppl_cost_mode: {mode}")
+    cap = reward_cfg.get("ppl_cost_cap")
+    if cap is not None:
+        value = min(value, float(cap))
+    return value
 
 
 class LLMUAVEnv:
@@ -380,7 +395,7 @@ class LLMUAVEnv:
         bandwidth_ok = True
 
         ppl_hat = ppl_hat_from_residuals(self.profile, residuals, linear_damage=damage)
-        ppl_norm = (ppl_hat - self.profile.ppl_ref) / max(self.profile.ppl_ref, 1e-9)
+        ppl_norm = ppl_cost_from_hat(ppl_hat, self.profile.ppl_ref, reward_cfg)
         latency_norm = latency / float(reward_cfg["latency_ref_s"])
         cost = float(reward_cfg["alpha"]) * ppl_norm + float(reward_cfg["beta"]) * latency_norm
         feasible = memory_ok and energy_ok and bandwidth_ok
@@ -412,7 +427,114 @@ class LLMUAVEnv:
         return max(0.0, (ppl_hat - self.profile.ppl_ref) / max(self.profile.ppl_ref, 1e-9))
 
     def evaluate_many(self, state: SimState, actions: np.ndarray) -> list[EvalResult]:
-        return [self.evaluate(state, action) for action in actions]
+        actions = np.asarray(actions, dtype=np.int64)
+        if actions.ndim != 2:
+            raise ValueError(f"actions must be 2D, got shape {actions.shape}")
+        count, layers = actions.shape
+        if layers != self.num_layers:
+            raise ValueError(f"actions has {layers} layers, expected {self.num_layers}")
+        if count == 0:
+            return []
+
+        reward_cfg = self.cfg["reward"]
+        uav_cfg = self.cfg["uav"]
+        n = self.num_uavs
+        layer_idx = np.arange(self.num_layers)
+        boundary_idx = np.arange(self.num_layers - 1)
+
+        mem_by_action = np.zeros((count, n), dtype=np.float64)
+        for uav in range(n):
+            mem_by_action[:, uav] = np.sum(np.where(actions == uav, self.profile.mem_bytes[None, :], 0.0), axis=1)
+        memory_ok = np.all(mem_by_action <= state.resources.mem_bytes[None, :] + 1e-9, axis=1)
+        max_mem_ratio = np.max(mem_by_action / np.maximum(state.resources.mem_bytes[None, :], 1.0), axis=1)
+
+        selected_compute = state.resources.compute_hz[actions]
+        compute_latency = self.profile.compute_cycles[None, :] / np.maximum(selected_compute, 1.0)
+        total_compute_latency = np.sum(compute_latency, axis=1)
+
+        compute_ghz = state.resources.compute_hz / 1e9
+        compute_power = float(uav_cfg["compute_power_base_w"]) + float(uav_cfg["compute_power_per_ghz_w"]) * compute_ghz
+        compute_energy_per_layer = compute_latency * compute_power[actions]
+        energy_by_action = np.zeros((count, n), dtype=np.float64)
+        for uav in range(n):
+            energy_by_action[:, uav] = np.sum(np.where(actions == uav, compute_energy_per_layer, 0.0), axis=1)
+
+        src = actions[:, :-1]
+        dst = actions[:, 1:]
+        transition_mask = src != dst
+        p = np.clip(state.channel.pdp[src, dst], 0.0, 0.999999)
+        snr = np.maximum(state.channel.snr[src, dst], 0.0)
+        spectral_eff = np.maximum(np.log2(1.0 + snr), 1e-12)
+        spectral_eff = np.where(transition_mask, spectral_eff, 1.0)
+
+        attempts = np.zeros_like(p, dtype=np.float64)
+        residual = np.zeros_like(p, dtype=np.float64)
+        retransmissions = self.cfg["wireless"]["retransmissions"]
+        if isinstance(retransmissions, str) and retransmissions.lower() in {"inf", "infinity"}:
+            attempts = 1.0 / np.maximum(1.0 - p, 1e-6)
+        else:
+            r_int = int(retransmissions)
+            if r_int < 0:
+                attempts = 1.0 / np.maximum(1.0 - p, 1e-6)
+            else:
+                attempts = (1.0 - np.power(p, r_int + 1)) / np.maximum(1.0 - p, 1e-8)
+                residual = np.power(p, r_int + 1)
+        attempts = np.where(transition_mask, attempts, 0.0)
+        residual = np.where(transition_mask, residual, 0.0)
+
+        coeff = self.profile.activation_bytes[None, :] * 8.0 * attempts / spectral_eff
+        sqrt_coeff = np.where(transition_mask, np.sqrt(np.maximum(coeff, 1e-12)), 0.0)
+        sqrt_total = np.sum(sqrt_coeff, axis=1, keepdims=True)
+        bandwidth = np.zeros_like(sqrt_coeff)
+        active_rows = (sqrt_total[:, 0] > 1e-12)
+        if np.any(active_rows):
+            bandwidth[active_rows] = (
+                float(self.cfg["wireless"]["bandwidth_hz"])
+                * sqrt_coeff[active_rows]
+                / sqrt_total[active_rows]
+            )
+        rate = np.maximum(bandwidth * spectral_eff, 1e-12)
+        comm_latency = np.where(
+            transition_mask,
+            self.profile.activation_bytes[None, :] * 8.0 * attempts / rate,
+            0.0,
+        )
+        total_comm_latency = np.sum(comm_latency, axis=1)
+        latency = total_compute_latency + total_comm_latency
+
+        tx_energy = float(uav_cfg["tx_power_w"]) * comm_latency
+        for uav in range(n):
+            energy_by_action[:, uav] += np.sum(np.where(src == uav, tx_energy, 0.0), axis=1)
+        energy_by_action += state.resources.hover_power_w[None, :] * latency[:, None]
+        total_energy = np.sum(energy_by_action, axis=1)
+        energy_ok = np.all(energy_by_action <= state.resources.energy_j[None, :] + 1e-9, axis=1)
+        max_energy_ratio = np.max(energy_by_action / np.maximum(state.resources.energy_j[None, :], 1.0), axis=1)
+
+        damage = np.sum(self.profile.importance[None, :] * residual, axis=1)
+        ppl_hat = ppl_hat_from_residuals_batch(self.profile, residual, linear_damage=damage)
+        ppl_norm = np.asarray([ppl_cost_from_hat(ppl, self.profile.ppl_ref, reward_cfg) for ppl in ppl_hat], dtype=np.float64)
+        latency_norm = latency / float(reward_cfg["latency_ref_s"])
+        cost = float(reward_cfg["alpha"]) * ppl_norm + float(reward_cfg["beta"]) * latency_norm
+        feasible = memory_ok & energy_ok
+        reward = np.where(feasible, -cost, float(reward_cfg["infeasible_reward"]))
+
+        return [
+            EvalResult(
+                reward=float(reward[i]),
+                cost=float(cost[i]),
+                feasible=bool(feasible[i]),
+                latency_s=float(latency[i]),
+                ppl_hat=float(ppl_hat[i]),
+                damage=float(damage[i]),
+                total_energy_j=float(total_energy[i]),
+                max_mem_ratio=float(max_mem_ratio[i]),
+                max_energy_ratio=float(max_energy_ratio[i]),
+                memory_ok=bool(memory_ok[i]),
+                energy_ok=bool(energy_ok[i]),
+                bandwidth_ok=True,
+            )
+            for i in range(count)
+        ]
 
     def set_last_action(self, action: np.ndarray) -> None:
         self._last_action = np.asarray(action, dtype=np.int64).copy()
