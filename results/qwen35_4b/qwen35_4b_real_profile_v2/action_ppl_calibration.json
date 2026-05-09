@@ -1,0 +1,17 @@
+{
+  "type": "log_ratio_affine_v1",
+  "ppl_ref": 12.388739769105376,
+  "bias": 0.09411853851686791,
+  "scale": 1.9536545762127064,
+  "rows": 32,
+  "state_count": 8,
+  "source_rows": "results/qwen35_4b/real_action_ppl_validation_compact/real_action_ppl_rows.csv",
+  "source_real_dir": "results/qwen35_4b/qwen35_4b_real_profile_v2",
+  "r2_log_ratio": 0.6305229828561043,
+  "rmse_log_ratio": 0.008902645928943931,
+  "mae_log_ratio": 0.005948019435596365,
+  "mean_relative_ppl_error": 0.005946761852399075,
+  "loo_r2_log_ratio": 0.5485593704671703,
+  "loo_rmse_log_ratio": 0.00984069356408189,
+  "loo_mean_relative_ppl_error": 0.006516367833540197
+}

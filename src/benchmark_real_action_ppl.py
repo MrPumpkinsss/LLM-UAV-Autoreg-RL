@@ -29,6 +29,26 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def load_action_calibration(path: str | Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if str(payload.get("type", "")).lower() != "log_ratio_affine_v1":
+        raise ValueError(f"unsupported action calibration type: {payload.get('type')}")
+    return payload
+
+
+def apply_action_calibration(ppl_hat: float, ppl_ref: float, calibration: dict[str, Any] | None) -> float:
+    if calibration is None:
+        return float(ppl_hat)
+    calibration_ref = float(calibration.get("ppl_ref", ppl_ref))
+    base = math.log(max(float(ppl_hat), 1e-12) / max(calibration_ref, 1e-12))
+    scale = float(calibration["scale"])
+    bias = float(calibration["bias"])
+    log_ratio = bias + scale * base
+    return calibration_ref * math.exp(max(min(log_ratio, 60.0), -60.0))
+
+
 def action_residuals(env: LLMUAVEnv, state: SimState, action: np.ndarray) -> dict[int, float]:
     residuals: dict[int, float] = {}
     action = np.asarray(action, dtype=np.int64)
@@ -156,6 +176,7 @@ def main() -> None:
     parser.add_argument("--beam-temperature", type=float, default=1.0)
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--out", default="results/qwen3_0p6b/real_action_ppl_validation")
+    parser.add_argument("--calibration-file", default=None)
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -173,6 +194,7 @@ def main() -> None:
     texts = default_texts(llm_cfg)
     out_dir = ensure_dir(args.out)
     wanted_methods = {x.strip() for x in str(args.methods).split(",") if x.strip()}
+    action_calibration = load_action_calibration(args.calibration_file)
 
     set_seed(int(args.seed))
     rng = np.random.default_rng(int(args.seed))
@@ -225,12 +247,14 @@ def main() -> None:
                 seed=int(args.seed) + state_id * 100000 + len(rows) * 137,
                 repeats=int(args.repeats),
             )
-            surrogate_ppl = float(ev.ppl_hat)
+            raw_surrogate_ppl = float(ev.ppl_hat)
+            surrogate_ppl = apply_action_calibration(raw_surrogate_ppl, float(profile.ppl_ref), action_calibration)
             log_error = float(math.log(max(surrogate_ppl, 1e-12) / max(real_ppl_mean, 1e-12)))
             rows.append(
                 {
                     "state_id": int(state_id),
                     "method": method,
+                    "raw_surrogate_ppl": raw_surrogate_ppl,
                     "surrogate_ppl": surrogate_ppl,
                     "real_ppl_mean": real_ppl_mean,
                     "real_ppl_std": real_ppl_std,
@@ -261,6 +285,7 @@ def main() -> None:
         "methods": sorted(wanted_methods),
         "real_dir": resolve_real_dir(cfg, args.real_dir).as_posix(),
         "policy": Path(args.policy).as_posix(),
+        "calibration_file": Path(args.calibration_file).as_posix() if args.calibration_file else None,
         "all": metric_block(rows),
         "competitive_non_random": metric_block(competitive_rows),
         "by_method": by_method,
@@ -272,6 +297,7 @@ def main() -> None:
         "",
         f"Real profile directory: `{resolve_real_dir(cfg, args.real_dir).as_posix()}`",
         f"Policy: `{Path(args.policy).as_posix()}`",
+        f"Action calibration: `{Path(args.calibration_file).as_posix()}`" if args.calibration_file else "Action calibration: none",
         f"Rows: `{metrics['all']['rows']}`",
         "",
         "| scope | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |",

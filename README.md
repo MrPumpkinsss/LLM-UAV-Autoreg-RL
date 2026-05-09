@@ -189,10 +189,11 @@ Real LLM validation recomputes paper-formula PPL for selected deployment actions
 | model | artifact | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman | status |
 |---|---|---:|---:|---:|---:|---:|---:|---|
 | Qwen3-0.6B | `results/qwen3_0p6b/real_action_ppl_validation_layer_calibrated_retrained` | 64 competitive | 0.023323 | 0.216265 | 0.052984 | 0.996233 | 0.973764 | validated |
-| Qwen3.5-4B | `results/qwen35_4b/real_action_ppl_validation_compact` | 32 competitive | 0.093873 | 0.132779 | 0.099194 | 0.792281 | 0.672287 | compact validated |
+| Qwen3.5-4B raw | `results/qwen35_4b/real_action_ppl_validation_compact` | 32 competitive | 0.093873 | 0.132779 | 0.099194 | 0.792281 | 0.672287 | compact validated |
+| Qwen3.5-4B calibrated | `results/qwen35_4b/real_action_ppl_validation_compact_calibrated` | 32 competitive | 0.005947 | 0.030636 | 0.008903 | 0.793284 | 0.672287 | action-calibrated compact |
 | Gemma-4-E4B | `results/gemma4_e4b/real_action_ppl_validation_compact` | 32 competitive | 0.270824 | 0.620170 | 0.362919 | 0.921446 | 0.872067 | compact validated |
 
-The compact validation uses `autoreg_rl_pure`, `hybrid_heuristic`, `block_lns_strong`, and `block_beam_strong`. It is meant to sanity-check the surrogate on real model forward passes, not to replace the simulator benchmark tables.
+The compact validation uses `autoreg_rl_pure`, `hybrid_heuristic`, `block_lns_strong`, and `block_beam_strong`. Qwen3.5-4B raw action-level PPL was systematically underpredicted, so a conservative log-space affine action calibration is also reported. It is fitted from the compact action rows and has leave-one-state-out mean relative error `0.006516`. This calibration fixes the action-level PPL scale; it does not change action ranking, so Pearson/Spearman are nearly unchanged.
 
 ## Surrogate Benchmarks
 
@@ -379,6 +380,23 @@ conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
   --autoreg-candidates 64 `
   --out results/qwen35_4b/real_action_ppl_validation_compact
 
+conda run -n LLM-UAV python -m src.train_action_ppl_calibration `
+  --rows results/qwen35_4b/real_action_ppl_validation_compact/real_action_ppl_rows.csv `
+  --real-dir results/qwen35_4b/qwen35_4b_real_profile_v2 `
+  --out results/qwen35_4b/qwen35_4b_real_profile_v2/action_ppl_calibration.json
+
+conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
+  --config configs/qwen35_4b_calibrated.yaml `
+  --llm-config configs/real_llm_qwen35_4b.yaml `
+  --policy results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt `
+  --states 8 `
+  --repeats 1 `
+  --max-length 48 `
+  --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong" `
+  --autoreg-candidates 64 `
+  --calibration-file results/qwen35_4b/qwen35_4b_real_profile_v2/action_ppl_calibration.json `
+  --out results/qwen35_4b/real_action_ppl_validation_compact_calibrated
+
 conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
   --config configs/gemma4_base_calibrated.yaml `
   --llm-config configs/real_llm_gemma4_base.yaml `
@@ -391,7 +409,7 @@ conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
   --out results/gemma4_e4b/real_action_ppl_validation_compact
 ```
 
-Expected compact real-LLM validation summaries: Qwen3.5-4B mean relative PPL error `0.093873`, Pearson `0.792281`, Spearman `0.672287`; Gemma-4-E4B mean relative PPL error `0.270824`, Pearson `0.921446`, Spearman `0.872067`. These commands require locally loadable Hugging Face model weights and enough GPU/CPU memory.
+Expected compact real-LLM validation summaries: Qwen3.5-4B raw mean relative PPL error `0.093873`, calibrated mean relative PPL error `0.005947`, calibration leave-one-state-out mean relative error `0.006516`; Gemma-4-E4B mean relative PPL error `0.270824`, Pearson `0.921446`, Spearman `0.872067`. These commands require locally loadable Hugging Face model weights and enough GPU/CPU memory.
 
 ## Repository Layout
 
@@ -417,6 +435,7 @@ Expected compact real-LLM validation summaries: Qwen3.5-4B mean relative PPL err
 |   |-- benchmark_real_profile.py
 |   |-- benchmark_real_action_ppl.py
 |   |-- benchmark_surrogate.py
+|   |-- train_action_ppl_calibration.py
 |   |-- real_llm_profile.py
 |   |-- real_llm_layer_calibration.py
 |   `-- reports/
@@ -443,6 +462,7 @@ Expected compact real-LLM validation summaries: Qwen3.5-4B mean relative PPL err
 |   |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
 |   |   |-- benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed/
 |   |   |-- real_action_ppl_validation_compact/
+|   |   |-- real_action_ppl_validation_compact_calibrated/
 |   |   |-- surrogate_benchmark_qwen35_4b_v2/
 |   |   `-- visuals_qwen35_teacher_big/
 |   |-- gemma4_e4b/

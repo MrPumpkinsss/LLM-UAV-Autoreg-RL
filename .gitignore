@@ -100,6 +100,7 @@ results/**
 !results/qwen35_4b/qwen35_4b_real_profile_v2/layer_ppl_summary.json
 !results/qwen35_4b/qwen35_4b_real_profile_v2/ppl_surrogate_mlp.json
 !results/qwen35_4b/qwen35_4b_real_profile_v2/ppl_surrogate_mlp.npz
+!results/qwen35_4b/qwen35_4b_real_profile_v2/action_ppl_calibration.json
 !results/qwen35_4b/qwen35_4b_real_profile_v2/real_profile_summary.json
 !results/gemma4_e4b/gemma4_e4b_real_profile/
 !results/gemma4_e4b/gemma4_e4b_real_profile/layer_params.npy
@@ -112,6 +113,9 @@ results/**
 !results/qwen35_4b/real_action_ppl_validation_compact/
 !results/qwen35_4b/real_action_ppl_validation_compact/real_action_ppl_metrics.json
 !results/qwen35_4b/real_action_ppl_validation_compact/real_action_ppl_report.md
+!results/qwen35_4b/real_action_ppl_validation_compact_calibrated/
+!results/qwen35_4b/real_action_ppl_validation_compact_calibrated/real_action_ppl_metrics.json
+!results/qwen35_4b/real_action_ppl_validation_compact_calibrated/real_action_ppl_report.md
 !results/gemma4_e4b/real_action_ppl_validation_compact/
 !results/gemma4_e4b/real_action_ppl_validation_compact/real_action_ppl_metrics.json
 !results/gemma4_e4b/real_action_ppl_validation_compact/real_action_ppl_report.md
