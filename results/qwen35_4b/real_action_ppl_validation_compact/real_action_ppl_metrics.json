@@ -1,0 +1,73 @@
+{
+  "states": 8,
+  "methods": [
+    "autoreg_rl_pure",
+    "block_beam_strong",
+    "block_lns_strong",
+    "hybrid_heuristic"
+  ],
+  "real_dir": "results/qwen35_4b/qwen35_4b_real_profile_v2",
+  "policy": "results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt",
+  "all": {
+    "rows": 32,
+    "mean_abs_ppl_error": 1.2915616655043645,
+    "max_abs_ppl_error": 1.9313916940487683,
+    "mean_relative_ppl_error": 0.0938727104035179,
+    "max_relative_ppl_error": 0.1327785536109489,
+    "rmse_log_ratio": 0.09919426634696246,
+    "pearson_ppl": 0.792280767639739,
+    "spearman_ppl": 0.6722873900293255
+  },
+  "competitive_non_random": {
+    "rows": 32,
+    "mean_abs_ppl_error": 1.2915616655043645,
+    "max_abs_ppl_error": 1.9313916940487683,
+    "mean_relative_ppl_error": 0.0938727104035179,
+    "max_relative_ppl_error": 0.1327785536109489,
+    "rmse_log_ratio": 0.09919426634696246,
+    "pearson_ppl": 0.792280767639739,
+    "spearman_ppl": 0.6722873900293255
+  },
+  "by_method": {
+    "autoreg_rl_pure": {
+      "rows": 8,
+      "mean_abs_ppl_error": 1.3728921388723145,
+      "max_abs_ppl_error": 1.9313916940487683,
+      "mean_relative_ppl_error": 0.09871665592838025,
+      "max_relative_ppl_error": 0.1327785536109489,
+      "rmse_log_ratio": 0.10556742318342559,
+      "pearson_ppl": 0.8573330822273731,
+      "spearman_ppl": 0.7142857142857144
+    },
+    "block_beam_strong": {
+      "rows": 8,
+      "mean_abs_ppl_error": 1.2737593730357006,
+      "max_abs_ppl_error": 1.4636459558086727,
+      "mean_relative_ppl_error": 0.09287267871948307,
+      "max_relative_ppl_error": 0.10452212600423834,
+      "rmse_log_ratio": 0.09761018892355626,
+      "pearson_ppl": 0.8822516172033651,
+      "spearman_ppl": 0.6904761904761906
+    },
+    "block_lns_strong": {
+      "rows": 8,
+      "mean_abs_ppl_error": 1.2481545819663065,
+      "max_abs_ppl_error": 1.4381881179856055,
+      "mean_relative_ppl_error": 0.09118251639314662,
+      "max_relative_ppl_error": 0.10320400536745791,
+      "rmse_log_ratio": 0.0958194596947524,
+      "pearson_ppl": 0.5385745736198585,
+      "spearman_ppl": 0.6190476190476191
+    },
+    "hybrid_heuristic": {
+      "rows": 8,
+      "mean_abs_ppl_error": 1.2714405681431358,
+      "max_abs_ppl_error": 1.4818554477081918,
+      "mean_relative_ppl_error": 0.09271899057306163,
+      "max_relative_ppl_error": 0.10599776447351748,
+      "rmse_log_ratio": 0.0974905699489619,
+      "pearson_ppl": 0.7373735308952937,
+      "spearman_ppl": 0.6666666666666669
+    }
+  }
+}

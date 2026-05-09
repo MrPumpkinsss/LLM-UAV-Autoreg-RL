@@ -109,6 +109,12 @@ results/**
 !results/qwen3_0p6b/real_action_ppl_validation_layer_calibrated_retrained/
 !results/qwen3_0p6b/real_action_ppl_validation_layer_calibrated_retrained/real_action_ppl_metrics.json
 !results/qwen3_0p6b/real_action_ppl_validation_layer_calibrated_retrained/real_action_ppl_report.md
+!results/qwen35_4b/real_action_ppl_validation_compact/
+!results/qwen35_4b/real_action_ppl_validation_compact/real_action_ppl_metrics.json
+!results/qwen35_4b/real_action_ppl_validation_compact/real_action_ppl_report.md
+!results/gemma4_e4b/real_action_ppl_validation_compact/
+!results/gemma4_e4b/real_action_ppl_validation_compact/real_action_ppl_metrics.json
+!results/gemma4_e4b/real_action_ppl_validation_compact/real_action_ppl_report.md
 !results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b/
 !results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b/surrogate_metrics.json
 !results/qwen3_0p6b/surrogate_benchmark_qwen3_0p6b/surrogate_report.md

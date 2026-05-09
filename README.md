@@ -184,13 +184,15 @@ The method tables below compare `autoreg_rl_pure` with the strongest heuristic b
 
 ## Real LLM Validation
 
-Real LLM validation recomputes paper-formula PPL for selected deployment actions. It is slower than simulator benchmarking and is used to validate the surrogate.
+Real LLM validation recomputes paper-formula PPL for selected deployment actions. It is slower than simulator benchmarking and is used to validate the surrogate. Qwen3-0.6B uses the earlier larger action-level validation; Qwen3.5-4B and Gemma-4-E4B use a compact validation run with 8 sampled UAV states, 4 competitive methods, 1 corruption repeat, and `max_length = 48`.
 
 | model | artifact | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman | status |
 |---|---|---:|---:|---:|---:|---:|---:|---|
 | Qwen3-0.6B | `results/qwen3_0p6b/real_action_ppl_validation_layer_calibrated_retrained` | 64 competitive | 0.023323 | 0.216265 | 0.052984 | 0.996233 | 0.973764 | validated |
-| Qwen3.5-4B | not available | 0 | - | - | - | - | - | pending |
-| Gemma-4-E4B | not available | 0 | - | - | - | - | - | pending |
+| Qwen3.5-4B | `results/qwen35_4b/real_action_ppl_validation_compact` | 32 competitive | 0.093873 | 0.132779 | 0.099194 | 0.792281 | 0.672287 | compact validated |
+| Gemma-4-E4B | `results/gemma4_e4b/real_action_ppl_validation_compact` | 32 competitive | 0.270824 | 0.620170 | 0.362919 | 0.921446 | 0.872067 | compact validated |
+
+The compact validation uses `autoreg_rl_pure`, `hybrid_heuristic`, `block_lns_strong`, and `block_beam_strong`. It is meant to sanity-check the surrogate on real model forward passes, not to replace the simulator benchmark tables.
 
 ## Surrogate Benchmarks
 
@@ -363,6 +365,34 @@ piecewise calibration report with `R2 = 1.0` on the sampled points. For
 Gemma-4-E4B, the reported `R2 = 1.0` is interpolation on the calibration
 curve, not held-out generalization.
 
+Run compact real-LLM action validation:
+
+```powershell
+conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
+  --config configs/qwen35_4b_calibrated.yaml `
+  --llm-config configs/real_llm_qwen35_4b.yaml `
+  --policy results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt `
+  --states 8 `
+  --repeats 1 `
+  --max-length 48 `
+  --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong" `
+  --autoreg-candidates 64 `
+  --out results/qwen35_4b/real_action_ppl_validation_compact
+
+conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
+  --config configs/gemma4_base_calibrated.yaml `
+  --llm-config configs/real_llm_gemma4_base.yaml `
+  --policy results/gemma4_e4b/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt `
+  --states 8 `
+  --repeats 1 `
+  --max-length 48 `
+  --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong" `
+  --autoreg-candidates 64 `
+  --out results/gemma4_e4b/real_action_ppl_validation_compact
+```
+
+Expected compact real-LLM validation summaries: Qwen3.5-4B mean relative PPL error `0.093873`, Pearson `0.792281`, Spearman `0.672287`; Gemma-4-E4B mean relative PPL error `0.270824`, Pearson `0.921446`, Spearman `0.872067`. These commands require locally loadable Hugging Face model weights and enough GPU/CPU memory.
+
 ## Repository Layout
 
 ```text
@@ -412,12 +442,14 @@ curve, not held-out generalization.
 |   |   |-- autoreg_rl_qwen35_4b_no_retrans_logcost_hard2/
 |   |   |-- benchmark_qwen35_4b_v2_teacher_big_5seed/
 |   |   |-- benchmark_qwen35_4b_no_retrans_logcost_hard2_k1024_fast_5seed/
+|   |   |-- real_action_ppl_validation_compact/
 |   |   |-- surrogate_benchmark_qwen35_4b_v2/
 |   |   `-- visuals_qwen35_teacher_big/
 |   |-- gemma4_e4b/
 |   |   |-- gemma4_e4b_real_profile/
 |   |   |-- autoreg_rl_gemma4_e4b_teacher/
 |   |   |-- benchmark_gemma4_e4b_teacher/
+|   |   |-- real_action_ppl_validation_compact/
 |   |   `-- surrogate_benchmark_gemma4_e4b/
 |   `-- cross_model/
 |       `-- surrogate_benchmark_multi_model_report.md
