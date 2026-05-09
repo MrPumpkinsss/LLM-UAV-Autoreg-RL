@@ -67,6 +67,8 @@ def main() -> None:
     parser.add_argument("--candidate-beam-count", type=int, default=None)
     parser.add_argument("--candidate-min-hamming", type=int, default=None)
     parser.add_argument("--retransmissions", default=None)
+    parser.add_argument("--ppl-cost-mode", default=None, choices=["linear", "log", "cap", "capped"])
+    parser.add_argument("--ppl-cost-cap", type=float, default=None)
     parser.add_argument("--out", default=None)
     parser.add_argument("--device", default=None)
     args = parser.parse_args()
@@ -78,6 +80,10 @@ def main() -> None:
             cfg.setdefault("wireless", {})["retransmissions"] = retransmissions
         else:
             cfg.setdefault("wireless", {})["retransmissions"] = int(retransmissions)
+    if args.ppl_cost_mode is not None:
+        cfg.setdefault("reward", {})["ppl_cost_mode"] = args.ppl_cost_mode
+    if args.ppl_cost_cap is not None:
+        cfg.setdefault("reward", {})["ppl_cost_cap"] = float(args.ppl_cost_cap)
     bench_cfg = dict(cfg.get("benchmark", {}))
     ar_cfg = cfg.setdefault("ar_rl", {})
     if args.autoreg_refine_steps is not None:

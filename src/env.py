@@ -39,6 +39,21 @@ class EvalResult:
     bandwidth_ok: bool
 
 
+def ppl_cost_from_hat(ppl_hat: float, ppl_ref: float, reward_cfg: dict) -> float:
+    linear = max(0.0, (float(ppl_hat) - float(ppl_ref)) / max(float(ppl_ref), 1e-9))
+    mode = str(reward_cfg.get("ppl_cost_mode", "linear")).lower()
+    if mode == "log":
+        value = float(np.log1p(linear))
+    elif mode in {"cap", "capped", "linear"}:
+        value = linear
+    else:
+        raise ValueError(f"unsupported reward.ppl_cost_mode: {mode}")
+    cap = reward_cfg.get("ppl_cost_cap")
+    if cap is not None:
+        value = min(value, float(cap))
+    return value
+
+
 class LLMUAVEnv:
     def __init__(self, cfg: dict, profile: LLMProfile, rng: np.random.Generator):
         self.cfg = cfg
@@ -380,7 +395,7 @@ class LLMUAVEnv:
         bandwidth_ok = True
 
         ppl_hat = ppl_hat_from_residuals(self.profile, residuals, linear_damage=damage)
-        ppl_norm = (ppl_hat - self.profile.ppl_ref) / max(self.profile.ppl_ref, 1e-9)
+        ppl_norm = ppl_cost_from_hat(ppl_hat, self.profile.ppl_ref, reward_cfg)
         latency_norm = latency / float(reward_cfg["latency_ref_s"])
         cost = float(reward_cfg["alpha"]) * ppl_norm + float(reward_cfg["beta"]) * latency_norm
         feasible = memory_ok and energy_ok and bandwidth_ok

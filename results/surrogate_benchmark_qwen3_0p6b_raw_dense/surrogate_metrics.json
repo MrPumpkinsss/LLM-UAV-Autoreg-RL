@@ -1,0 +1,14 @@
+{
+  "ppl_ref": 30.811978559923826,
+  "gamma": 11.011661017987901,
+  "points": 13,
+  "fit": "piecewise",
+  "exponential_r2_log_ratio": 0.9944864789634447,
+  "exponential_rmse_log_ratio": 0.025493289158188537,
+  "r2_log_ratio": 1.0,
+  "rmse_log_ratio": 0.0,
+  "mae_ppl": 0.0,
+  "max_abs_ppl_error": 0.0,
+  "mean_relative_ppl_error": 0.0,
+  "max_relative_ppl_error": 0.0
+}
