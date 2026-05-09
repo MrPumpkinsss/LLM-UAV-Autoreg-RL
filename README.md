@@ -50,10 +50,16 @@ For feasible deployments:
 
 ```text
 reward = -cost
-cost = alpha * ((PPL_hat - PPL_ref) / PPL_ref) + beta * (latency_s / latency_ref_s)
+cost = alpha * PPL_cost + beta * (latency_s / latency_ref_s)
+PPL_linear = max(0, (PPL_hat - PPL_ref) / PPL_ref)
+
+if reward.ppl_cost_mode == "linear":
+    PPL_cost = PPL_linear
+if reward.ppl_cost_mode == "log":
+    PPL_cost = log(1 + PPL_linear)
 ```
 
-The main `r = 1` configs use `alpha = 0.4`, `beta = 0.6`, linear `PPL_norm`, one retransmission, and `infeasible_reward = -100.0`. The Qwen3 `r = 0` rerun switches the PPL term to `log(1 + PPL_norm)` because raw PDP otherwise creates a heavy-tail reward. The retransmission setting affects both expected communication latency and the residual activation-loss probability:
+The main `r = 1` configs use `alpha = 0.4`, `beta = 0.6`, `reward.ppl_cost_mode = linear`, one retransmission, and `infeasible_reward = -100.0`. The Qwen3-0.6B and Qwen3.5-4B `r = 0` reruns use `reward.ppl_cost_mode = log` because raw PDP otherwise creates a heavy-tail reward. The retransmission setting affects both expected communication latency and the residual activation-loss probability:
 
 ```text
 residual_l = p_l^(r + 1)
@@ -111,7 +117,7 @@ Strong non-RL baselines include `hybrid_heuristic`, `block_lns_strong`, `block_b
 
 ### No-Retransmission Ablation (`r = 0`)
 
-The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual activation loss is raw PDP instead of `PDP^2`. These reruns use `reward.ppl_cost_mode = log`, so the reward uses `log(1 + PPL_norm)` instead of raw `PPL_norm`. This avoids the pathological heavy-tail explosion seen with the old linear-cost no-retrans run. These runs were executed in the `LLM-UAV` conda environment with CUDA.
+The no-retransmission ablation sets `wireless.retransmissions = 0`, so residual activation loss is raw PDP instead of `PDP^2`. These reruns use `reward.ppl_cost_mode = log`, so the reward uses `log(1 + PPL_linear)` instead of raw `PPL_linear`. This avoids the pathological heavy-tail explosion seen with the old linear-cost no-retrans run. These runs were executed in the `LLM-UAV` conda environment with CUDA.
 
 | model | artifact | states | RL reward | best non-RL | best non-RL reward | RL latency | RL PPL_hat | RL runtime | mean margin | win/tie |
 |---|---|---:|---:|---|---:|---:|---:|---:|---:|---:|
