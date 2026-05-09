@@ -2,12 +2,26 @@
 
 Real profile directory: `results/qwen35_4b/qwen35_4b_real_profile_v2`
 Policy: `results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt`
+Action calibration: none
 Rows: `32`
 
 | scope | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|---:|
 | all | 32 | 0.093873 | 0.132779 | 0.099194 | 0.792281 | 0.672287 |
 | non-random competitive | 32 | 0.093873 | 0.132779 | 0.099194 | 0.792281 | 0.672287 |
+
+## Real LLM Method Benchmark
+
+This table substitutes measured real LLM PPL into the same reward formula used by the simulator.
+
+| method | rows | real reward | surrogate reward | latency | real PPL | surrogate PPL | mean rel error | transitions |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| block_lns_strong | 8 | -0.161081 | -0.120781 | 3.9751 | 13.6842 | 12.4360 | 0.091183 | 2.00 |
+| hybrid_heuristic | 8 | -0.161832 | -0.120781 | 3.9751 | 13.7075 | 12.4360 | 0.092719 | 2.00 |
+| block_beam_strong | 8 | -0.162025 | -0.120899 | 3.9788 | 13.7100 | 12.4362 | 0.092873 | 2.00 |
+| autoreg_rl_pure | 8 | -0.168045 | -0.123717 | 4.0230 | 13.8554 | 12.4825 | 0.098717 | 2.00 |
+
+`autoreg_rl_pure` real-reward margin vs best non-RL: mean `-0.007946`, min `-0.029679`, win/tie `0.2500`, strict win `0.1250` over `8` states.
 
 | method | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|---:|

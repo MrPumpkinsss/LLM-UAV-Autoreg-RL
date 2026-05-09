@@ -8,6 +8,7 @@
   ],
   "real_dir": "results/qwen35_4b/qwen35_4b_real_profile_v2",
   "policy": "results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt",
+  "calibration_file": null,
   "all": {
     "rows": 32,
     "mean_abs_ppl_error": 1.2915616655043645,
@@ -69,5 +70,66 @@
       "pearson_ppl": 0.7373735308952937,
       "spearman_ppl": 0.6666666666666669
     }
+  },
+  "method_benchmark": [
+    {
+      "method": "block_lns_strong",
+      "rows": 8,
+      "real_reward_mean": -0.1610806331670046,
+      "surrogate_reward_mean": -0.1207809867064691,
+      "raw_reward_mean": -0.1207809867064691,
+      "latency_mean": 3.975116367631422,
+      "real_ppl_mean": 13.684203717189954,
+      "surrogate_ppl_mean": 12.436049135223646,
+      "raw_surrogate_ppl_mean": 12.436049135223646,
+      "mean_relative_ppl_error": 0.09118251639314662,
+      "transition_count_mean": 2.0
+    },
+    {
+      "method": "hybrid_heuristic",
+      "rows": 8,
+      "real_reward_mean": -0.16183247674789564,
+      "surrogate_reward_mean": -0.1207809867064691,
+      "raw_reward_mean": -0.1207809867064691,
+      "latency_mean": 3.975116367631422,
+      "real_ppl_mean": 13.707489703366782,
+      "surrogate_ppl_mean": 12.436049135223646,
+      "raw_surrogate_ppl_mean": 12.436049135223646,
+      "mean_relative_ppl_error": 0.09271899057306163,
+      "transition_count_mean": 2.0
+    },
+    {
+      "method": "block_beam_strong",
+      "rows": 8,
+      "real_reward_mean": -0.16202518328685497,
+      "surrogate_reward_mean": -0.12089882510110442,
+      "raw_reward_mean": -0.12089882510110442,
+      "latency_mean": 3.978846071815683,
+      "real_ppl_mean": 13.709992706182621,
+      "surrogate_ppl_mean": 12.43623333314692,
+      "raw_surrogate_ppl_mean": 12.43623333314692,
+      "mean_relative_ppl_error": 0.09287267871948307,
+      "transition_count_mean": 2.0
+    },
+    {
+      "method": "autoreg_rl_pure",
+      "rows": 8,
+      "real_reward_mean": -0.16804456129297574,
+      "surrogate_reward_mean": -0.12371746541528245,
+      "raw_reward_mean": -0.12371746541528245,
+      "latency_mean": 4.022970157584824,
+      "real_ppl_mean": 13.85542583919612,
+      "surrogate_ppl_mean": 12.482533700323806,
+      "raw_surrogate_ppl_mean": 12.482533700323806,
+      "mean_relative_ppl_error": 0.09871665592838025,
+      "transition_count_mean": 2.0
+    }
+  ],
+  "autoreg_vs_nonrl_real_reward": {
+    "states": 8,
+    "mean_margin": -0.00794578052350953,
+    "min_margin": -0.029678808063714035,
+    "win_tie_rate": 0.25,
+    "strict_win_rate": 0.125
   }
 }

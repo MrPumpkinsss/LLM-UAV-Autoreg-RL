@@ -2,12 +2,26 @@
 
 Real profile directory: `results/gemma4_e4b/gemma4_e4b_real_profile`
 Policy: `results/gemma4_e4b/autoreg_rl_gemma4_e4b_teacher/autoreg_policy_best.pt`
+Action calibration: none
 Rows: `32`
 
 | scope | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|---:|
 | all | 32 | 0.270824 | 0.620170 | 0.362919 | 0.921446 | 0.872067 |
 | non-random competitive | 32 | 0.270824 | 0.620170 | 0.362919 | 0.921446 | 0.872067 |
+
+## Real LLM Method Benchmark
+
+This table substitutes measured real LLM PPL into the same reward formula used by the simulator.
+
+| method | rows | real reward | surrogate reward | latency | real PPL | surrogate PPL | mean rel error | transitions |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| block_lns_strong | 8 | -0.385024 | -0.249956 | 8.3053 | 14.3942 | 10.7661 | 0.247540 | 2.25 |
+| hybrid_heuristic | 8 | -0.399878 | -0.249956 | 8.3053 | 14.7933 | 10.7661 | 0.262059 | 2.25 |
+| autoreg_rl_pure | 8 | -0.401515 | -0.250343 | 8.3183 | 14.8267 | 10.7660 | 0.262776 | 2.25 |
+| block_beam_strong | 8 | -0.482219 | -0.258407 | 8.4305 | 16.9041 | 10.8922 | 0.310920 | 2.25 |
+
+`autoreg_rl_pure` real-reward margin vs best non-RL: mean `-0.017716`, min `-0.096983`, win/tie `0.3750`, strict win `0.1250` over `8` states.
 
 | method | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|---:|

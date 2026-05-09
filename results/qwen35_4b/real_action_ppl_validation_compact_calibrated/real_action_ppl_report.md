@@ -10,6 +10,19 @@ Rows: `32`
 | all | 32 | 0.005947 | 0.030636 | 0.008903 | 0.793284 | 0.672287 |
 | non-random competitive | 32 | 0.005947 | 0.030636 | 0.008903 | 0.793284 | 0.672287 |
 
+## Real LLM Method Benchmark
+
+This table substitutes measured real LLM PPL into the same reward formula used by the simulator.
+
+| method | rows | real reward | surrogate reward | latency | real PPL | surrogate PPL | mean rel error | transitions |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| block_lns_strong | 8 | -0.161081 | -0.162024 | 3.9751 | 13.6842 | 13.7134 | 0.005894 | 2.00 |
+| hybrid_heuristic | 8 | -0.161832 | -0.162024 | 3.9751 | 13.7075 | 13.7134 | 0.004944 | 2.00 |
+| block_beam_strong | 8 | -0.162025 | -0.162148 | 3.9788 | 13.7100 | 13.7138 | 0.003520 | 2.00 |
+| autoreg_rl_pure | 8 | -0.168045 | -0.166715 | 4.0230 | 13.8554 | 13.8142 | 0.009429 | 2.00 |
+
+`autoreg_rl_pure` real-reward margin vs best non-RL: mean `-0.007946`, min `-0.029679`, win/tie `0.2500`, strict win `0.1250` over `8` states.
+
 | method | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|---:|
 | autoreg_rl_pure | 8 | 0.009429 | 0.030636 | 0.013573 | 0.858166 | 0.714286 |

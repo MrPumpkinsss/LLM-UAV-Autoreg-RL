@@ -15,7 +15,7 @@ from .autoreg_rl_agent import AutoregRLAgent
 from .baselines import evaluate_full_benchmark_timed, random_feasible
 from .benchmark_real_profile import build_real_profile, resolve_real_dir, set_seed
 from .config import ensure_dir, load_config
-from .env import LLMUAVEnv, SimState
+from .env import LLMUAVEnv, SimState, ppl_cost_from_hat
 from .real_llm_layer_calibration import attach_layer_corruption
 from .real_llm_profile import compute_ppl, default_texts, dtype_from_name, load_yaml
 
@@ -135,6 +135,65 @@ def metric_block(rows: list[dict[str, Any]]) -> dict[str, float | int]:
     }
 
 
+def method_benchmark(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    summary: list[dict[str, Any]] = []
+    for method in sorted({str(row["method"]) for row in rows}):
+        group = [row for row in rows if str(row["method"]) == method]
+        summary.append(
+            {
+                "method": method,
+                "rows": len(group),
+                "real_reward_mean": float(np.mean([row["real_reward"] for row in group])),
+                "surrogate_reward_mean": float(np.mean([row["surrogate_reward"] for row in group])),
+                "raw_reward_mean": float(np.mean([row["raw_reward"] for row in group])),
+                "latency_mean": float(np.mean([row["latency_s"] for row in group])),
+                "real_ppl_mean": float(np.mean([row["real_ppl_mean"] for row in group])),
+                "surrogate_ppl_mean": float(np.mean([row["surrogate_ppl"] for row in group])),
+                "raw_surrogate_ppl_mean": float(np.mean([row["raw_surrogate_ppl"] for row in group])),
+                "mean_relative_ppl_error": float(np.mean([row["rel_ppl_error"] for row in group])),
+                "transition_count_mean": float(np.mean([row["transition_count"] for row in group])),
+            }
+        )
+    return sorted(summary, key=lambda item: item["real_reward_mean"], reverse=True)
+
+
+def autoreg_real_margin(rows: list[dict[str, Any]]) -> dict[str, float | int]:
+    margins: list[float] = []
+    wins = 0
+    strict_wins = 0
+    evaluated = 0
+    for state_id in sorted({int(row["state_id"]) for row in rows}):
+        group = [row for row in rows if int(row["state_id"]) == state_id]
+        rl = [row for row in group if str(row["method"]) == "autoreg_rl_pure"]
+        nonrl = [row for row in group if str(row["method"]) not in {"autoreg_rl_pure", "random"}]
+        if not rl or not nonrl:
+            continue
+        rl_reward = float(rl[0]["real_reward"])
+        best_nonrl = max(float(row["real_reward"]) for row in nonrl)
+        margin = rl_reward - best_nonrl
+        margins.append(margin)
+        evaluated += 1
+        if margin >= -1e-12:
+            wins += 1
+        if margin > 1e-12:
+            strict_wins += 1
+    if not margins:
+        return {
+            "states": 0,
+            "mean_margin": float("nan"),
+            "min_margin": float("nan"),
+            "win_tie_rate": float("nan"),
+            "strict_win_rate": float("nan"),
+        }
+    return {
+        "states": int(evaluated),
+        "mean_margin": float(np.mean(margins)),
+        "min_margin": float(np.min(margins)),
+        "win_tie_rate": float(wins / evaluated),
+        "strict_win_rate": float(strict_wins / evaluated),
+    }
+
+
 def load_llm(cfg_path: str | Path):
     cfg = load_yaml(cfg_path)
     device = torch.device(cfg["device"] if cfg["device"] == "cuda" and torch.cuda.is_available() else "cpu")
@@ -203,6 +262,7 @@ def main() -> None:
     agent = AutoregRLAgent(env, cfg, args.device, rng)
     state_dict = torch.load(Path(args.policy), map_location=agent.device)
     agent.policy.load_state_dict(state_dict)
+    reward_cfg = cfg["reward"]
 
     rows: list[dict[str, Any]] = []
     seen: set[tuple[int, str, tuple[int, ...]]] = set()
@@ -249,6 +309,13 @@ def main() -> None:
             )
             raw_surrogate_ppl = float(ev.ppl_hat)
             surrogate_ppl = apply_action_calibration(raw_surrogate_ppl, float(profile.ppl_ref), action_calibration)
+            latency_norm = float(ev.latency_s) / float(reward_cfg["latency_ref_s"])
+            surrogate_ppl_norm = ppl_cost_from_hat(surrogate_ppl, profile.ppl_ref, reward_cfg)
+            surrogate_cost = float(reward_cfg["alpha"]) * surrogate_ppl_norm + float(reward_cfg["beta"]) * latency_norm
+            surrogate_reward = -surrogate_cost if ev.feasible else float(reward_cfg["infeasible_reward"])
+            real_ppl_norm = ppl_cost_from_hat(real_ppl_mean, profile.ppl_ref, reward_cfg)
+            real_cost = float(reward_cfg["alpha"]) * real_ppl_norm + float(reward_cfg["beta"]) * latency_norm
+            real_reward = -real_cost if ev.feasible else float(reward_cfg["infeasible_reward"])
             log_error = float(math.log(max(surrogate_ppl, 1e-12) / max(real_ppl_mean, 1e-12)))
             rows.append(
                 {
@@ -262,7 +329,13 @@ def main() -> None:
                     "rel_ppl_error": abs(surrogate_ppl - real_ppl_mean) / max(real_ppl_mean, 1e-12),
                     "log_ratio_error": log_error,
                     "latency_s": float(ev.latency_s),
-                    "reward": float(ev.reward),
+                    "reward": float(surrogate_reward),
+                    "surrogate_reward": float(surrogate_reward),
+                    "raw_reward": float(ev.reward),
+                    "surrogate_cost": float(surrogate_cost),
+                    "real_reward": float(real_reward),
+                    "real_cost": float(real_cost),
+                    "feasible": bool(ev.feasible),
                     "damage": float(ev.damage),
                     "transition_count": int(len(residuals)),
                     "residual_sum": float(sum(residuals.values())),
@@ -275,6 +348,8 @@ def main() -> None:
         print(f"validated state {state_id + 1}/{args.states}", flush=True)
 
     write_csv(out_dir / "real_action_ppl_rows.csv", rows)
+    method_summary = method_benchmark(rows)
+    write_csv(out_dir / "real_action_ppl_method_summary.csv", method_summary)
     by_method = {
         method: metric_block([row for row in rows if str(row["method"]) == method])
         for method in sorted({str(row["method"]) for row in rows})
@@ -289,6 +364,8 @@ def main() -> None:
         "all": metric_block(rows),
         "competitive_non_random": metric_block(competitive_rows),
         "by_method": by_method,
+        "method_benchmark": method_summary,
+        "autoreg_vs_nonrl_real_reward": autoreg_real_margin(rows),
     }
     (out_dir / "real_action_ppl_metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
 
@@ -312,9 +389,32 @@ def main() -> None:
         f"{metrics['competitive_non_random']['pearson_ppl']:.6f} | "
         f"{metrics['competitive_non_random']['spearman_ppl']:.6f} |",
         "",
+        "## Real LLM Method Benchmark",
+        "",
+        "This table substitutes measured real LLM PPL into the same reward formula used by the simulator.",
+        "",
+        "| method | rows | real reward | surrogate reward | latency | real PPL | surrogate PPL | mean rel error | transitions |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for item in method_summary:
+        lines.append(
+            f"| {item['method']} | {item['rows']} | {item['real_reward_mean']:.6f} | "
+            f"{item['surrogate_reward_mean']:.6f} | {item['latency_mean']:.4f} | "
+            f"{item['real_ppl_mean']:.4f} | {item['surrogate_ppl_mean']:.4f} | "
+            f"{item['mean_relative_ppl_error']:.6f} | {item['transition_count_mean']:.2f} |"
+        )
+    margin = metrics["autoreg_vs_nonrl_real_reward"]
+    lines.extend(
+        [
+            "",
+            f"`autoreg_rl_pure` real-reward margin vs best non-RL: mean `{margin['mean_margin']:.6f}`, "
+            f"min `{margin['min_margin']:.6f}`, win/tie `{margin['win_tie_rate']:.4f}`, "
+            f"strict win `{margin['strict_win_rate']:.4f}` over `{margin['states']}` states.",
+            "",
         "| method | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |",
         "|---|---:|---:|---:|---:|---:|---:|",
-    ]
+        ]
+    )
     for method, item in by_method.items():
         lines.append(
             f"| {method} | {item['rows']} | {item['mean_relative_ppl_error']:.6f} | "
