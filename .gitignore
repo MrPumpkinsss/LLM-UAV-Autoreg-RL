@@ -145,6 +145,11 @@ results/**
 !results/qwen3_0p6b/visuals_layer_calibrated_hard_k256/
 !results/qwen3_0p6b/visuals_layer_calibrated_hard_k256/*.png
 !results/qwen3_0p6b/visuals_layer_calibrated_hard_k256/visual_summary.md
+!results/qwen3_0p6b/sweep_figures/
+!results/qwen3_0p6b/sweep_figures/*.png
+!results/qwen3_0p6b/sweep_figures/sweep_report.md
+!results/qwen3_0p6b/sweep_figures/sweep_summary.csv
+!results/qwen3_0p6b/sweep_figures/sweep_margins.csv
 !results/qwen35_4b/visuals_qwen35_teacher_big/
 !results/qwen35_4b/visuals_qwen35_teacher_big/*.png
 !results/qwen35_4b/visuals_qwen35_teacher_big/visual_summary.md

@@ -276,6 +276,22 @@ Qwen3-0.6B uses the exact drop grid `[0.0, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 
 
 ![Gemma-4-E4B surrogate curve](results/gemma4_e4b/surrogate_benchmark_gemma4_e4b/surrogate_ppl_fit.png)
 
+### Qwen3-0.6B Parameter Sweeps
+
+The sweep figures use the retransmission-aware Qwen3-0.6B checkpoint with 5 UAVs, `k=256` pure learned-policy candidates, and the same strong heuristic baselines as the simulator benchmark. Each plotted point is averaged over 24 simulator states (`seeds 91,92` x `12` states). Full tables and all latency/PPL/energy plots are in `results/qwen3_0p6b/sweep_figures/sweep_report.md`.
+
+![Bandwidth sweep reward](results/qwen3_0p6b/sweep_figures/bandwidth_mhz_reward.png)
+
+![Bandwidth sweep RL margin](results/qwen3_0p6b/sweep_figures/bandwidth_mhz_margin.png)
+
+![Area sweep reward](results/qwen3_0p6b/sweep_figures/area_m_reward.png)
+
+![Area sweep RL margin](results/qwen3_0p6b/sweep_figures/area_m_margin.png)
+
+![Sequence-length sweep reward](results/qwen3_0p6b/sweep_figures/sequence_length_reward.png)
+
+![SNR-threshold sweep PPL](results/qwen3_0p6b/sweep_figures/snr_threshold_ppl.png)
+
 ## Reproduce
 
 The tracked repository is sufficient to run the simulator, load the released
@@ -374,6 +390,19 @@ conda run -n LLM-UAV python -m src.benchmark_real_profile `
 ```
 
 Expected no-retransmission summaries: Qwen3-0.6B log-cost/raw-dense hard-state `autoreg_rl_pure` reward `-0.257262`, `PPL_hat` `32.4630`, win/tie `0.8938`; Qwen3.5-4B log-cost hard-state `autoreg_rl_pure` reward `-0.244603`, `PPL_hat` `18.9752`, win/tie `0.7313`.
+
+Regenerate the Qwen3-0.6B sweep figures:
+
+```powershell
+conda run -n LLM-UAV python -m src.reports.make_sweep_report `
+  --config configs/qwen3_calibrated.yaml `
+  --states 12 `
+  --seeds "91,92" `
+  --autoreg-candidates 256 `
+  --out results/qwen3_0p6b/sweep_figures
+```
+
+This command writes `sweep_report.md`, `sweep_summary.csv`, `sweep_margins.csv`, and the PNG figures under `results/qwen3_0p6b/sweep_figures`. It also writes `sweep_rows.csv` locally for audit/debugging; that raw per-state file is intentionally ignored by git.
 
 Run a surrogate benchmark:
 
@@ -483,6 +512,7 @@ Expected compact real-LLM validation summaries: Qwen3-0.6B mean relative PPL err
 |       |-- make_autoreg_report.py
 |       |-- make_k_sweep_report.py
 |       |-- make_multi_model_surrogate_report.py
+|       |-- make_sweep_report.py
 |       `-- make_visuals.py
 |-- results/
 |   |-- qwen3_0p6b/
@@ -496,6 +526,7 @@ Expected compact real-LLM validation summaries: Qwen3-0.6B mean relative PPL err
 |   |   |-- real_action_ppl_validation_compact_128/
 |   |   |-- surrogate_benchmark_qwen3_0p6b/
 |   |   |-- surrogate_benchmark_qwen3_0p6b_raw_dense/
+|   |   |-- sweep_figures/
 |   |   `-- visuals_layer_calibrated_hard_k256/
 |   |-- qwen35_4b/
 |   |   |-- qwen35_4b_real_profile_v2/
