@@ -184,15 +184,15 @@ The method tables below compare `autoreg_rl_pure` with the strongest heuristic b
 
 ## Real LLM Benchmark
 
-Real LLM benchmarking recomputes paper-formula PPL for selected deployment actions, then substitutes measured PPL into the same reward formula used by the simulator. This is much slower than simulator benchmarking, so it is run as a compact action-level check: 8 sampled UAV states, 4 competitive methods, 1 corruption repeat, and 32 total actions per model. Qwen3-0.6B uses `max_length = 128` to match its real profile; Qwen3.5-4B and Gemma-4-E4B use `max_length = 48` compact validation.
+Real LLM benchmarking recomputes paper-formula PPL for selected deployment actions, then substitutes measured PPL into the same reward formula used by the simulator. This is much slower than simulator benchmarking, so it is run as a compact action-level check: 8 sampled UAV states, 4 competitive methods, 1 corruption repeat, `k = 256` learned RL candidates, and 32 total actions per model. Qwen3-0.6B uses `max_length = 128` to match its real profile; Qwen3.5-4B and Gemma-4-E4B use `max_length = 48` compact validation.
 
 | model | artifact | actions | best real method | RL real reward | best non-RL real reward | RL real PPL | mean rel PPL error | Pearson | Spearman | RL win/tie |
 |---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|
-| Qwen3-0.6B | `results/qwen3_0p6b/real_action_ppl_validation_compact_128` | 32 | `hybrid_heuristic` | -0.389492 | -0.345564 | 42.0151 | 0.028290 | 0.990272 | 0.985337 | 0.3750 |
-| Qwen3.5-4B calibrated | `results/qwen35_4b/real_action_ppl_validation_compact_calibrated` | 32 | `block_lns_strong` | -0.168045 | -0.161081 | 13.8554 | 0.005947 | 0.793284 | 0.672287 | 0.2500 |
-| Gemma-4-E4B | `results/gemma4_e4b/real_action_ppl_validation_compact` | 32 | `block_lns_strong` | -0.401515 | -0.385024 | 14.8267 | 0.270824 | 0.921446 | 0.872067 | 0.3750 |
+| Qwen3-0.6B | `results/qwen3_0p6b/real_action_ppl_validation_compact_128` | 32 | `hybrid_heuristic` | -0.357557 | -0.345564 | 40.3345 | 0.027358 | 0.987717 | 0.989736 | 0.5000 |
+| Qwen3.5-4B calibrated | `results/qwen35_4b/real_action_ppl_validation_compact_calibrated` | 32 | `block_lns_strong` | -0.161440 | -0.161081 | 13.6734 | 0.002744 | 0.706439 | 0.630865 | 0.6250 |
+| Gemma-4-E4B | `results/gemma4_e4b/real_action_ppl_validation_compact` | 32 | `autoreg_rl_pure` | -0.370592 | -0.385024 | 14.1130 | 0.264362 | 0.942891 | 0.859238 | 0.6250 |
 
-The compact validation uses `autoreg_rl_pure`, `hybrid_heuristic`, `block_lns_strong`, and `block_beam_strong`. Qwen3.5-4B raw action-level PPL was systematically underpredicted, so the main Qwen3.5 row uses a conservative log-space affine action calibration fitted from the compact action rows. Its leave-one-state-out mean relative error is `0.006516`. The calibration fixes action-level PPL scale; it does not materially change ranking, so Pearson/Spearman remain close to the raw run.
+The compact validation uses `autoreg_rl_pure`, `hybrid_heuristic`, `block_lns_strong`, and `block_beam_strong`. Qwen3.5-4B raw action-level PPL was systematically underpredicted, so the main Qwen3.5 row uses a conservative log-space affine action calibration fitted from the compact action rows. Its leave-one-state-out mean relative error is `0.002778` for the `k = 256` action set. The calibration fixes action-level PPL scale; it does not materially change ranking, so Pearson/Spearman remain close to the raw run.
 
 ### Real LLM Method Tables
 
@@ -202,28 +202,28 @@ Qwen3-0.6B:
 |---|---:|---:|---:|---:|---:|---:|
 | hybrid_heuristic | -0.345564 | -0.366192 | 2.3536 | 39.3013 | 40.8903 | 0.037794 |
 | block_lns_strong | -0.349865 | -0.366192 | 2.3536 | 39.6325 | 40.8903 | 0.024467 |
+| autoreg_rl_pure | -0.357557 | -0.365867 | 2.3394 | 40.3345 | 40.9746 | 0.031292 |
 | block_beam_strong | -0.372417 | -0.367709 | 2.3630 | 41.2968 | 40.9342 | 0.015877 |
-| autoreg_rl_pure | -0.389492 | -0.401658 | 2.4405 | 42.0151 | 42.9523 | 0.035020 |
 
 Qwen3.5-4B calibrated:
 
 | method | real reward | surrogate reward | latency | real PPL | surrogate PPL | mean rel error |
 |---|---:|---:|---:|---:|---:|---:|
-| block_lns_strong | -0.161081 | -0.162024 | 3.9751 | 13.6842 | 13.7134 | 0.005894 |
-| hybrid_heuristic | -0.161832 | -0.162024 | 3.9751 | 13.7075 | 13.7134 | 0.004944 |
-| block_beam_strong | -0.162025 | -0.162148 | 3.9788 | 13.7100 | 13.7138 | 0.003520 |
-| autoreg_rl_pure | -0.168045 | -0.166715 | 4.0230 | 13.8554 | 13.8142 | 0.009429 |
+| block_lns_strong | -0.161081 | -0.161313 | 3.9751 | 13.6842 | 13.6914 | 0.003793 |
+| autoreg_rl_pure | -0.161440 | -0.162296 | 3.9987 | 13.6734 | 13.6999 | 0.002057 |
+| hybrid_heuristic | -0.161832 | -0.161313 | 3.9751 | 13.7075 | 13.6914 | 0.002869 |
+| block_beam_strong | -0.162025 | -0.161432 | 3.9788 | 13.7100 | 13.6916 | 0.002257 |
 
 Gemma-4-E4B:
 
 | method | real reward | surrogate reward | latency | real PPL | surrogate PPL | mean rel error |
 |---|---:|---:|---:|---:|---:|---:|
+| autoreg_rl_pure | -0.370592 | -0.245565 | 8.1731 | 14.1130 | 10.7546 | 0.236927 |
 | block_lns_strong | -0.385024 | -0.249956 | 8.3053 | 14.3942 | 10.7661 | 0.247540 |
 | hybrid_heuristic | -0.399878 | -0.249956 | 8.3053 | 14.7933 | 10.7661 | 0.262059 |
-| autoreg_rl_pure | -0.401515 | -0.250343 | 8.3183 | 14.8267 | 10.7660 | 0.262776 |
 | block_beam_strong | -0.482219 | -0.258407 | 8.4305 | 16.9041 | 10.8922 | 0.310920 |
 
-The real benchmark is stricter than the simulator benchmark. In these compact real-LLM checks, the current RL policy does not beat the strongest non-RL baseline; the simulator win is therefore not claimed as a real-LLM win. Gemma still has the weakest action-level PPL scale agreement because its surrogate is an empirical embedding-drop curve rather than a layer-wise calibration.
+The real benchmark is stricter than the simulator benchmark. With `k = 256`, Gemma's RL policy is the best method on this compact real-LLM check, while Qwen3-0.6B and Qwen3.5-4B are much closer to the strongest non-RL baseline but still slightly behind on mean real reward. Gemma still has the weakest action-level PPL scale agreement because its surrogate is an empirical embedding-drop curve rather than a layer-wise calibration.
 
 ## Surrogate Benchmarks
 
@@ -407,7 +407,7 @@ conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
   --repeats 1 `
   --max-length 128 `
   --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong" `
-  --autoreg-candidates 64 `
+  --autoreg-candidates 256 `
   --out results/qwen3_0p6b/real_action_ppl_validation_compact_128
 
 conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
@@ -418,7 +418,7 @@ conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
   --repeats 1 `
   --max-length 48 `
   --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong" `
-  --autoreg-candidates 64 `
+  --autoreg-candidates 256 `
   --out results/qwen35_4b/real_action_ppl_validation_compact
 
 conda run -n LLM-UAV python -m src.train_action_ppl_calibration `
@@ -434,7 +434,7 @@ conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
   --repeats 1 `
   --max-length 48 `
   --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong" `
-  --autoreg-candidates 64 `
+  --autoreg-candidates 256 `
   --calibration-file results/qwen35_4b/qwen35_4b_real_profile_v2/action_ppl_calibration.json `
   --out results/qwen35_4b/real_action_ppl_validation_compact_calibrated
 
@@ -446,11 +446,11 @@ conda run -n LLM-UAV python -m src.benchmark_real_action_ppl `
   --repeats 1 `
   --max-length 48 `
   --methods "autoreg_rl_pure,hybrid_heuristic,block_lns_strong,block_beam_strong" `
-  --autoreg-candidates 64 `
+  --autoreg-candidates 256 `
   --out results/gemma4_e4b/real_action_ppl_validation_compact
 ```
 
-Expected compact real-LLM validation summaries: Qwen3-0.6B mean relative PPL error `0.028290`, Pearson `0.990272`, RL real-reward win/tie `0.3750`; Qwen3.5-4B raw mean relative PPL error `0.093873`, calibrated mean relative PPL error `0.005947`, calibration leave-one-state-out mean relative error `0.006516`, RL real-reward win/tie `0.2500`; Gemma-4-E4B mean relative PPL error `0.270824`, Pearson `0.921446`, Spearman `0.872067`, RL real-reward win/tie `0.3750`. These commands require locally loadable Hugging Face model weights and enough GPU/CPU memory.
+Expected compact real-LLM validation summaries: Qwen3-0.6B mean relative PPL error `0.027358`, Pearson `0.987717`, RL real-reward win/tie `0.5000`; Qwen3.5-4B raw mean relative PPL error `0.091682`, calibrated mean relative PPL error `0.002744`, calibration leave-one-state-out mean relative error `0.002778`, RL real-reward win/tie `0.6250`; Gemma-4-E4B mean relative PPL error `0.264362`, Pearson `0.942891`, Spearman `0.859238`, RL real-reward win/tie `0.6250`. These commands require locally loadable Hugging Face model weights and enough GPU/CPU memory.
 
 ## Repository Layout
 

@@ -3,12 +3,13 @@
 Real profile directory: `results/qwen3_0p6b/qwen3_0p6b_real_profile`
 Policy: `results/qwen3_0p6b/autoreg_rl_layer_calibrated_hard_k256/autoreg_policy_best.pt`
 Action calibration: none
+Autoregressive RL candidates: `256`
 Rows: `32`
 
 | scope | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|---:|
-| all | 32 | 0.028290 | 0.126255 | 0.043024 | 0.990272 | 0.985337 |
-| non-random competitive | 32 | 0.028290 | 0.126255 | 0.043024 | 0.990272 | 0.985337 |
+| all | 32 | 0.027358 | 0.126255 | 0.041935 | 0.987717 | 0.989736 |
+| non-random competitive | 32 | 0.027358 | 0.126255 | 0.041935 | 0.987717 | 0.989736 |
 
 ## Real LLM Method Benchmark
 
@@ -18,21 +19,21 @@ This table substitutes measured real LLM PPL into the same reward formula used b
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | hybrid_heuristic | 8 | -0.345564 | -0.366192 | 2.3536 | 39.3013 | 40.8903 | 0.037794 | 2.75 |
 | block_lns_strong | 8 | -0.349865 | -0.366192 | 2.3536 | 39.6325 | 40.8903 | 0.024467 | 2.75 |
+| autoreg_rl_pure | 8 | -0.357557 | -0.365867 | 2.3394 | 40.3345 | 40.9746 | 0.031292 | 2.75 |
 | block_beam_strong | 8 | -0.372417 | -0.367709 | 2.3630 | 41.2968 | 40.9342 | 0.015877 | 2.75 |
-| autoreg_rl_pure | 8 | -0.389492 | -0.401658 | 2.4405 | 42.0151 | 42.9523 | 0.035020 | 2.88 |
 
-`autoreg_rl_pure` real-reward margin vs best non-RL: mean `-0.048524`, min `-0.161586`, win/tie `0.3750`, strict win `0.1250` over `8` states.
+`autoreg_rl_pure` real-reward margin vs best non-RL: mean `-0.016589`, min `-0.083646`, win/tie `0.5000`, strict win `0.2500` over `8` states.
 
 | method | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |
 |---|---:|---:|---:|---:|---:|---:|
-| autoreg_rl_pure | 8 | 0.035020 | 0.126255 | 0.051552 | 0.991931 | 1.000000 |
+| autoreg_rl_pure | 8 | 0.031292 | 0.126255 | 0.047829 | 0.980325 | 1.000000 |
 | block_beam_strong | 8 | 0.015877 | 0.043138 | 0.023174 | 0.997505 | 1.000000 |
 | block_lns_strong | 8 | 0.024467 | 0.082609 | 0.038192 | 0.999233 | 1.000000 |
 | hybrid_heuristic | 8 | 0.037794 | 0.122371 | 0.052450 | 0.994508 | 1.000000 |
 
 | method | surrogate PPL | real PPL | rel error | transitions |
 |---|---:|---:|---:|---:|
-| autoreg_rl_pure | 79.800569 | 75.199398 +/- 0.000000 | 0.061186 | 2 |
+| autoreg_rl_pure | 63.339110 | 65.607712 +/- 0.000000 | 0.034578 | 3 |
 | block_beam_strong | 63.339110 | 65.390275 +/- 0.000000 | 0.031368 | 3 |
 | block_lns_strong | 63.339110 | 59.164448 +/- 0.000000 | 0.070560 | 3 |
 | hybrid_heuristic | 63.339110 | 60.205256 +/- 0.000000 | 0.052053 | 3 |
@@ -44,7 +45,7 @@ This table substitutes measured real LLM PPL into the same reward formula used b
 | block_beam_strong | 30.811979 | 30.843947 +/- 0.000000 | 0.001036 | 2 |
 | block_lns_strong | 30.811979 | 30.843947 +/- 0.000000 | 0.001036 | 2 |
 | hybrid_heuristic | 30.811979 | 30.843947 +/- 0.000000 | 0.001036 | 2 |
-| autoreg_rl_pure | 30.945055 | 30.946976 +/- 0.000000 | 0.000062 | 4 |
+| autoreg_rl_pure | 30.940605 | 30.905430 +/- 0.000000 | 0.001138 | 3 |
 | block_beam_strong | 30.951411 | 30.943845 +/- 0.000000 | 0.000245 | 3 |
 | block_lns_strong | 30.951411 | 30.908830 +/- 0.000000 | 0.001378 | 3 |
 | hybrid_heuristic | 30.951411 | 30.896544 +/- 0.000000 | 0.001776 | 3 |
@@ -52,7 +53,7 @@ This table substitutes measured real LLM PPL into the same reward formula used b
 | block_beam_strong | 59.911914 | 62.073719 +/- 0.000000 | 0.034826 | 3 |
 | block_lns_strong | 59.873614 | 55.304947 +/- 0.000000 | 0.082609 | 3 |
 | hybrid_heuristic | 59.873614 | 56.259099 +/- 0.000000 | 0.064248 | 3 |
-| autoreg_rl_pure | 44.363845 | 46.782712 +/- 0.000000 | 0.051704 | 3 |
+| autoreg_rl_pure | 45.008761 | 42.971364 +/- 0.000000 | 0.047413 | 2 |
 | block_beam_strong | 45.008761 | 43.147469 +/- 0.000000 | 0.043138 | 2 |
 | block_lns_strong | 45.008761 | 43.959005 +/- 0.000000 | 0.023880 | 2 |
 | hybrid_heuristic | 45.008761 | 40.101505 +/- 0.000000 | 0.122371 | 2 |

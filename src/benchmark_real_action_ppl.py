@@ -358,6 +358,7 @@ def main() -> None:
     metrics = {
         "states": int(args.states),
         "methods": sorted(wanted_methods),
+        "autoreg_candidates": int(args.autoreg_candidates),
         "real_dir": resolve_real_dir(cfg, args.real_dir).as_posix(),
         "policy": Path(args.policy).as_posix(),
         "calibration_file": Path(args.calibration_file).as_posix() if args.calibration_file else None,
@@ -375,6 +376,7 @@ def main() -> None:
         f"Real profile directory: `{resolve_real_dir(cfg, args.real_dir).as_posix()}`",
         f"Policy: `{Path(args.policy).as_posix()}`",
         f"Action calibration: `{Path(args.calibration_file).as_posix()}`" if args.calibration_file else "Action calibration: none",
+        f"Autoregressive RL candidates: `{int(args.autoreg_candidates)}`",
         f"Rows: `{metrics['all']['rows']}`",
         "",
         "| scope | rows | mean rel error | max rel error | RMSE log-ratio | Pearson | Spearman |",

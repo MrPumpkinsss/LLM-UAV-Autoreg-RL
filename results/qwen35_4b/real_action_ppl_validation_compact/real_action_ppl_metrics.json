@@ -6,39 +6,40 @@
     "block_lns_strong",
     "hybrid_heuristic"
   ],
+  "autoreg_candidates": 256,
   "real_dir": "results/qwen35_4b/qwen35_4b_real_profile_v2",
   "policy": "results/qwen35_4b/autoreg_rl_qwen35_4b_v2_teacher_big/autoreg_policy_best.pt",
   "calibration_file": null,
   "all": {
     "rows": 32,
-    "mean_abs_ppl_error": 1.2915616655043645,
-    "max_abs_ppl_error": 1.9313916940487683,
-    "mean_relative_ppl_error": 0.0938727104035179,
-    "max_relative_ppl_error": 0.1327785536109489,
-    "rmse_log_ratio": 0.09919426634696246,
-    "pearson_ppl": 0.792280767639739,
-    "spearman_ppl": 0.6722873900293255
+    "mean_abs_ppl_error": 1.2558308333583619,
+    "max_abs_ppl_error": 1.4818554477081918,
+    "mean_relative_ppl_error": 0.09168203732258794,
+    "max_relative_ppl_error": 0.10599776447351748,
+    "rmse_log_ratio": 0.09631746372536405,
+    "pearson_ppl": 0.706440061062456,
+    "spearman_ppl": 0.6308651026392961
   },
   "competitive_non_random": {
     "rows": 32,
-    "mean_abs_ppl_error": 1.2915616655043645,
-    "max_abs_ppl_error": 1.9313916940487683,
-    "mean_relative_ppl_error": 0.0938727104035179,
-    "max_relative_ppl_error": 0.1327785536109489,
-    "rmse_log_ratio": 0.09919426634696246,
-    "pearson_ppl": 0.792280767639739,
-    "spearman_ppl": 0.6722873900293255
+    "mean_abs_ppl_error": 1.2558308333583619,
+    "max_abs_ppl_error": 1.4818554477081918,
+    "mean_relative_ppl_error": 0.09168203732258794,
+    "max_relative_ppl_error": 0.10599776447351748,
+    "rmse_log_ratio": 0.09631746372536405,
+    "pearson_ppl": 0.706440061062456,
+    "spearman_ppl": 0.6308651026392961
   },
   "by_method": {
     "autoreg_rl_pure": {
       "rows": 8,
-      "mean_abs_ppl_error": 1.3728921388723145,
-      "max_abs_ppl_error": 1.9313916940487683,
-      "mean_relative_ppl_error": 0.09871665592838025,
-      "max_relative_ppl_error": 0.1327785536109489,
-      "rmse_log_ratio": 0.10556742318342559,
-      "pearson_ppl": 0.8573330822273731,
-      "spearman_ppl": 0.7142857142857144
+      "mean_abs_ppl_error": 1.2299688102883044,
+      "max_abs_ppl_error": 1.25702731115023,
+      "mean_relative_ppl_error": 0.08995396360466038,
+      "max_relative_ppl_error": 0.09164296226702111,
+      "rmse_log_ratio": 0.09431164406947441,
+      "pearson_ppl": 0.8484365593036558,
+      "spearman_ppl": 0.5952380952380953
     },
     "block_beam_strong": {
       "rows": 8,
@@ -86,6 +87,19 @@
       "transition_count_mean": 2.0
     },
     {
+      "method": "autoreg_rl_pure",
+      "rows": 8,
+      "real_reward_mean": -0.16143977994440728,
+      "surrogate_reward_mean": -0.12172730448001631,
+      "raw_reward_mean": -0.12172730448001631,
+      "latency_mean": 3.998694253669562,
+      "real_ppl_mean": 13.673419635017929,
+      "surrogate_ppl_mean": 12.443450824729627,
+      "raw_surrogate_ppl_mean": 12.443450824729627,
+      "mean_relative_ppl_error": 0.08995396360466038,
+      "transition_count_mean": 2.0
+    },
+    {
       "method": "hybrid_heuristic",
       "rows": 8,
       "real_reward_mean": -0.16183247674789564,
@@ -110,26 +124,13 @@
       "raw_surrogate_ppl_mean": 12.43623333314692,
       "mean_relative_ppl_error": 0.09287267871948307,
       "transition_count_mean": 2.0
-    },
-    {
-      "method": "autoreg_rl_pure",
-      "rows": 8,
-      "real_reward_mean": -0.16804456129297574,
-      "surrogate_reward_mean": -0.12371746541528245,
-      "raw_reward_mean": -0.12371746541528245,
-      "latency_mean": 4.022970157584824,
-      "real_ppl_mean": 13.85542583919612,
-      "surrogate_ppl_mean": 12.482533700323806,
-      "raw_surrogate_ppl_mean": 12.482533700323806,
-      "mean_relative_ppl_error": 0.09871665592838025,
-      "transition_count_mean": 2.0
     }
   ],
   "autoreg_vs_nonrl_real_reward": {
     "states": 8,
-    "mean_margin": -0.00794578052350953,
-    "min_margin": -0.029678808063714035,
-    "win_tie_rate": 0.25,
-    "strict_win_rate": 0.125
+    "mean_margin": -0.0013409991749410675,
+    "min_margin": -0.006734846009205625,
+    "win_tie_rate": 0.625,
+    "strict_win_rate": 0.25
   }
 }
